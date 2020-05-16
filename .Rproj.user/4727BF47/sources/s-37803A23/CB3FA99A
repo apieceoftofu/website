@@ -1,19 +1,21 @@
 {
     "collab_server" : "",
     "contents" : "",
-    "created" : 1589598438315.000,
+    "created" : 1589599130662.000,
     "dirty" : false,
     "encoding" : "UTF-8",
     "folds" : "",
     "hash" : "0",
-    "id" : "B2A295C5",
+    "id" : "CB3FA99A",
     "lastKnownWriteTime" : 1589598733,
-    "last_content_update" : 1589598733155,
-    "path" : "~/Website/content/blog/Finding the Reverse Complement of DNA Sequences.Rmd",
-    "project_path" : "content/blog/Finding the Reverse Complement of DNA Sequences.Rmd",
+    "last_content_update" : 1589599132819,
+    "path" : "~/Website/content/dna.Rmd",
+    "project_path" : "content/dna.Rmd",
     "properties" : {
-        "cursorPosition" : "8,33",
-        "scrollLine" : "0"
+        "cursorPosition" : "7,19",
+        "last_setup_crc32" : "37803A23bb338d19",
+        "scrollLine" : "0",
+        "tempName" : "Untitled2"
     },
     "read_only" : false,
     "read_only_alternatives" : [

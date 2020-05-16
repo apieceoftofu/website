@@ -1,0 +1,25 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1589599067695.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "FAD2414B",
+    "lastKnownWriteTime" : 1589599112,
+    "last_content_update" : 1589599112222,
+    "path" : "~/Website/content/blog.md",
+    "project_path" : "content/blog.md",
+    "properties" : {
+        "cursorPosition" : "4,19",
+        "scrollLine" : "0"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 4,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "markdown"
+}

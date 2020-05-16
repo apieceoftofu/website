@@ -1,0 +1,49 @@
+---
+title: "Finding Reverse Complement of DNA Sequence"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, fig.align = "center", warning = F, message = F,
+tidy=TRUE, tidy.opts=list(width.cutoff=60), R.options=list(max.print=100))
+```
+
+```{r}
+library(reticulate)
+
+```
+During my years in the UT Virtual Cures ARI stream, we would sequence the plasmid we prepared via midi-prep to determine if there were any mutations in the product. I can't remember the sequencing process, but one of the two sequences returned (one from a forward primer, other from a reverse primer) was the reverse complementary of the actual DNA sequence, so we needed to find the revers-reverse complementary to piece the two together for a complete sequence. 
+
+At that time, I, not know what Python was and would copy-paste the sequence into a website and have it spit out the reverse complement. However, times have changed, and now I am able to write a code that spits out the reverse complementary of a DNA sequence I input. 
+
+
+The reverse function works by slicing the string [start:stop:step]. In Python, objects like lists and strings have indices where the contents are located. So in english this function starts at beginning, ends at end, but iterates one index backwards; this creates the inverse of the string. 
+
+```{python}
+
+def reverse(seq):
+    rev = seq[ : :-1]
+    return rev
+
+def dna_rev_comp(seq):
+    comp = [] #creates empty list
+    rev = reverse(seq) #calls previous function
+    for i in rev:
+        if i == "A":
+            comp.append("T")
+        elif i == "T":
+            comp.append("A")
+        elif i == "C":
+            comp.append("G")
+        elif i == "G":
+            comp.append("C")
+    comp = ''.join(comp) #joins the characters in list into a string with nothing in between
+    return comp
+
+s = "AAAACCCGGT" #input string 
+dna_rev_comp(s) #function call
+```
+
+
