@@ -1,0 +1,20 @@
+---
+title: "Quaratine Art"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Did some exploring with different styles here. They may look like they've all been drawn by different people, unfortunately, and I still haven't found a style I really like. 
+
+![Portrait 1](1-1.JPG)
+
+![Portrait 2](2-1.JPG)
+
+![Haikyuu!! Nishinoya](3-1.JPG)
+
+![Miku Nakano - per request of friend](4-1.JPG)
+
+![Outfit I own](5-1.JPG)
+

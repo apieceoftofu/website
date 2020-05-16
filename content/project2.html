@@ -1,0 +1,400 @@
+---
+title: "Project 2 - Heart Disease Prediction Model"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+
+<div id="jiayin-li-jl64556" class="section level6">
+<h6>Jiayin Li jl64556</h6>
+</div>
+<div id="introduction" class="section level4">
+<h4>Introduction</h4>
+<p>The diagnosis of heart disease is done on a combination of clinical signs and test results. This dataset contains results obtained from 297 patients of different possible contributors to heart diseases including cholesterol levels, blood pressure, including hereditary traits such as sex, disorders, etc.</p>
+<p>*age: age in years</p>
+<p>*sex: 1 = male, 0 = female</p>
+<p>*cp: The chest pain experienced (1: typical angina, 2: atypical angina, 3: non-anginal pain, 4: asymptomatic)</p>
+<p>*trestbps: esting blood pressure (mmHg on admission to the hospital)</p>
+<p>*chol: Cholesterol measurement in mg/dl
+fbs: Fasting blood sugar (&gt; 120 mg/dl, 1 = true; 0 = false)</p>
+<p>*restecg: Resting electrocardiographic measurement (0 = normal, 1 = having ST-T wave abnormality, 2 = showing probable or definite left ventricular hypertrophy by Estes’ criteria)</p>
+<p>*thalach: The person’s maximum heart rate achieved</p>
+<p>*exang: Exercise induced angina (1 = yes; 0 = no)</p>
+<p>*oldpeak: ST depression induced by exercise relative to rest</p>
+<p>*slope: the slope of the peak exercise ST segment (1: upsloping, 2: flat, 3: downsloping)</p>
+<p>*ca: The number of major vessels (0-3)</p>
+<p>*thal: A blood disorder called thalassemia ( 0 = normal; 1 = fixed defect; 2 = reversable defect)</p>
+<p>*target: Heart disease (0 = no, 1 = yes)</p>
+</div>
+<div id="code-for-class_diag" class="section level2">
+<h2>Code for class_diag</h2>
+</div>
+<div id="manova-and-t-test" class="section level2">
+<h2>MANOVA and t-test</h2>
+<pre class="r"><code>heart &lt;- read.csv(&quot;heart_cleveland_upload.csv&quot;)
+heart$sex &lt;- as.character(heart$sex)
+heart$sex[heart$sex == &quot;0&quot;] &lt;- &quot;f&quot;
+heart$sex[heart$sex == &quot;1&quot;] &lt;- &quot;m&quot;
+
+heart$thal &lt;- as.character(heart$thal)
+heart$thal[heart$thal == &quot;0&quot;] &lt;- &quot;normal&quot;
+heart$thal[heart$thal == &quot;1&quot;] &lt;- &quot;fixed defect&quot;
+heart$thal[heart$thal == &quot;2&quot;] &lt;- &quot;reversible defect&quot;
+library(dplyr)
+
+man &lt;- manova(cbind(chol, trestbps) ~ sex, data = heart)
+summary(man)</code></pre>
+<pre><code>##            Df   Pillai approx F num Df den Df   Pr(&gt;F)   
+## sex         1 0.040891   6.2672      2    294 0.002161 **
+## Residuals 295                                            
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<pre class="r"><code>summary.aov(man)</code></pre>
+<pre><code>##  Response chol :
+##              Df Sum Sq Mean Sq F value    Pr(&gt;F)    
+## sex           1  31404 31403.6  12.048 0.0005959 ***
+## Residuals   295 768906  2606.5                      
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+##  Response trestbps :
+##              Df Sum Sq Mean Sq F value Pr(&gt;F)
+## sex           1    411  411.03   1.304 0.2544
+## Residuals   295  92982  315.19</code></pre>
+<pre class="r"><code>heart %&gt;% group_by(sex) %&gt;% summarize(mean(chol), mean(trestbps))</code></pre>
+<pre><code>## # A tibble: 2 x 3
+##   sex   `mean(chol)` `mean(trestbps)`
+##   &lt;chr&gt;        &lt;dbl&gt;            &lt;dbl&gt;
+## 1 f             262.             133.
+## 2 m             240.             131.</code></pre>
+<p><em>A MANOVA test was conducted to determine to whether cholesterol levels and resting blood pressure differs by sex. From the MANOVA, significant difference among sex for one of the variables was found (F=6.26, p=0.2216.) Univariate ANOVAs were then conducted and a significant different was found among sex for cholesterol level while there was no significant difference for resting blood pressure (p=0.00059, p=0.2544, respectively). Since 1 manova and 2 anova tests were conducted, the new p-value was adjusted to 0.05/3=0.0167. The p-value found from the ANOVA test determining whether mean cholesterol level differs across sex was less than the adjusted p-value. This suggests that the result is significant, and after comparing the actual mean cholesterol levels, it can be determined that cholesterol levels in women is significantly higher than cholesterol levels in men for the sample tested. (The p-value was again adjusted to a one-tailed p-value of 0.0167/2= 0.0083)</em></p>
+<p><em>For assumptions, it is unsure whether the samples are random under independent observations.</em></p>
+</div>
+<div id="randomization-test" class="section level2">
+<h2>Randomization Test</h2>
+<pre class="r"><code>library(dplyr)
+heart %&gt;% group_by(sex) %&gt;% summarize(means = mean(trestbps)) %&gt;% 
+    summarize(`mean_diff:` = diff(means))</code></pre>
+<pre><code>## # A tibble: 1 x 1
+##   `mean_diff:`
+##          &lt;dbl&gt;
+## 1        -2.52</code></pre>
+<pre class="r"><code>rand_dist &lt;- vector()
+for (i in 1:5000) {
+    new &lt;- data.frame(trestbps = sample(heart$trestbps), sex = heart$sex)
+    rand_dist[i] &lt;- mean(new[new$sex == &quot;f&quot;, ]$trestbps) - mean(new[new$sex == 
+        &quot;m&quot;, ]$trestbps)
+}
+{
+    hist(rand_dist, main = &quot;&quot;, ylab = &quot;&quot;)
+    abline(v = -2.515236, col = &quot;red&quot;)
+}</code></pre>
+<p><img src="/project2_files/figure-html/unnamed-chunk-1-1.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>mean(rand_dist &gt; 2.515236 | rand_dist &lt; -2.515236)</code></pre>
+<pre><code>## [1] 0.2536</code></pre>
+<pre class="r"><code>library(car)
+leveneTest(trestbps ~ sex, data = heart)</code></pre>
+<pre><code>## Levene&#39;s Test for Homogeneity of Variance (center = median)
+##        Df F value Pr(&gt;F)
+## group   1   1.361 0.2443
+##       295</code></pre>
+<pre class="r"><code>t.test(data = heart, trestbps ~ sex)</code></pre>
+<pre><code>## 
+##  Welch Two Sample t-test
+## 
+## data:  trestbps by sex
+## t = 1.0858, df = 165.31, p-value = 0.2791
+## alternative hypothesis: true difference in means is not equal to 0
+## 95 percent confidence interval:
+##  -2.058401  7.088874
+## sample estimates:
+## mean in group f mean in group m 
+##        133.3958        130.8806</code></pre>
+<p><em>The mean differene between resting blood pressure of males and females was 2.515236. A Randomization test was performed to determine whether there was a difference in mean resting blood pressure on admission to the hospital between males and females. The null hypothesis was that mean resting BP is the same for both sexs and the alternative hypothesis was they are different. The p-value for the randomization tests was 0.2578, which suggests the result are not significant and the mean resting BP are the same for both sexs. A t-test was then performed to verify the randomization test and the result was indeed not significant (p=0.2791).</em></p>
+</div>
+<div id="linear-regression-interaction" class="section level2">
+<h2>Linear Regression + Interaction</h2>
+<pre class="r"><code>library(ggplot2)
+library(sandwich)
+library(lmtest)
+heart$age_c &lt;- heart$age - mean(heart$age)
+fit &lt;- lm(chol ~ sex * age_c, data = heart)
+summary(fit)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = chol ~ sex * age_c, data = heart)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -140.789  -32.838   -5.561   29.081  281.439 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept) 260.0462     5.1520  50.475  &lt; 2e-16 ***
+## sexm        -19.4161     6.2503  -3.106  0.00208 ** 
+## age_c         1.8072     0.5455   3.313  0.00104 ** 
+## sexm:age_c   -1.1375     0.6769  -1.681  0.09391 .  
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 50.06 on 293 degrees of freedom
+## Multiple R-squared:  0.08236,    Adjusted R-squared:  0.07296 
+## F-statistic: 8.766 on 3 and 293 DF,  p-value: 1.385e-05</code></pre>
+<pre class="r"><code>### Assumptions
+resids &lt;- fit$residuals
+fitvals &lt;- fit$fitted.values
+ggplot() + geom_histogram(aes(resids), bins = 20)</code></pre>
+<p><img src="/project2_files/figure-html/unnamed-chunk-2-1.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>ggplot() + geom_point(aes(fitvals, resids)) + geom_hline(yintercept = 0, 
+    col = &quot;red&quot;)</code></pre>
+<p><img src="/project2_files/figure-html/unnamed-chunk-2-2.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>ggplot() + geom_qq(aes(sample = resids)) + geom_qq_line(aes(sample = resids), 
+    color = &quot;red&quot;)</code></pre>
+<p><img src="/project2_files/figure-html/unnamed-chunk-2-3.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>ks.test(resids, &quot;pnorm&quot;, mean = 0, sd(resids))</code></pre>
+<pre><code>## 
+##  One-sample Kolmogorov-Smirnov test
+## 
+## data:  resids
+## D = 0.053388, p-value = 0.3656
+## alternative hypothesis: two-sided</code></pre>
+<pre class="r"><code>bptest(fit)</code></pre>
+<pre><code>## 
+##  studentized Breusch-Pagan test
+## 
+## data:  fit
+## BP = 21.769, df = 3, p-value = 7.286e-05</code></pre>
+<p>**When controlling for age there is a significant difference in cholesterol levels between males and females (p=0.00208, t=-3.106). For this linear regression model, males’ cholesterol levels will be 19.4161 mg/dl lower than that of females when controlling for age. Controlling for sex, there is a significant effect of age on cholesterol level. For every one year increase in age, cholesterol level increases 1.8072 mg/dl. (p=0.00104, t= 3.313)<em>
+</em>There does not seem to be an interaction between ace and sex on levels of cholesterol (p&gt;0.05)<em>
+</em>Because linear regression requires a set of assumptions to be fulfilled, normality was checked with a histogram of residuals, linearity was checked with a scatterplot, and variance checked with a Breuch-Pagan test. The equal variance assumption was not met (p&lt;0.05), which means the sample is heteroskedastic. *</p>
+</div>
+<div id="linear-regression-graph" class="section level2">
+<h2>Linear Regression Graph</h2>
+<pre class="r"><code>library(tidyverse)
+newdat &lt;- heart
+newdat$sex &lt;- rep(&quot;f&quot;, length(newdat$sex))
+newdat$pred2 &lt;- predict(fit, newdat)
+newdat$sex &lt;- rep(&quot;m&quot;, length(newdat$sex))
+newdat$pred1 &lt;- predict(fit, newdat)
+new1 &lt;- newdat %&gt;% select(age_c, chol, pred2, pred1) %&gt;% gather(sex, 
+    pred, -c(age_c, chol))
+new1$sex &lt;- factor(new1$sex, labels = c(&quot;m&quot;, &quot;f&quot;))
+fit &lt;- lm(chol ~ age_c * sex, data = heart)
+summary(fit)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = chol ~ age_c * sex, data = heart)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -140.789  -32.838   -5.561   29.081  281.439 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept) 260.0462     5.1520  50.475  &lt; 2e-16 ***
+## age_c         1.8072     0.5455   3.313  0.00104 ** 
+## sexm        -19.4161     6.2503  -3.106  0.00208 ** 
+## age_c:sexm   -1.1375     0.6769  -1.681  0.09391 .  
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 50.06 on 293 degrees of freedom
+## Multiple R-squared:  0.08236,    Adjusted R-squared:  0.07296 
+## F-statistic: 8.766 on 3 and 293 DF,  p-value: 1.385e-05</code></pre>
+<pre class="r"><code>ggplot(new1, aes(x = age_c, y = chol)) + geom_point() + geom_line(aes(y = pred, 
+    color = sex), size = 1) + ggtitle(&quot;t-test controlling for age&quot;)</code></pre>
+<p><img src="/project2_files/figure-html/unnamed-chunk-3-1.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>library(sandwich)
+library(lmtest)
+fit &lt;- lm(chol ~ age_c * sex, data = heart)
+bptest(fit)</code></pre>
+<pre><code>## 
+##  studentized Breusch-Pagan test
+## 
+## data:  fit
+## BP = 21.769, df = 3, p-value = 7.286e-05</code></pre>
+<pre class="r"><code>summary(fit)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = chol ~ age_c * sex, data = heart)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -140.789  -32.838   -5.561   29.081  281.439 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept) 260.0462     5.1520  50.475  &lt; 2e-16 ***
+## age_c         1.8072     0.5455   3.313  0.00104 ** 
+## sexm        -19.4161     6.2503  -3.106  0.00208 ** 
+## age_c:sexm   -1.1375     0.6769  -1.681  0.09391 .  
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 50.06 on 293 degrees of freedom
+## Multiple R-squared:  0.08236,    Adjusted R-squared:  0.07296 
+## F-statistic: 8.766 on 3 and 293 DF,  p-value: 1.385e-05</code></pre>
+<pre class="r"><code>summary(fit)$coef[, 1:2]</code></pre>
+<pre><code>##               Estimate Std. Error
+## (Intercept) 260.046190  5.1520226
+## age_c         1.807231  0.5455367
+## sexm        -19.416056  6.2503432
+## age_c:sexm   -1.137541  0.6768682</code></pre>
+<pre class="r"><code>coeftest(fit, vcov = vcovHC(fit))[, 1:2]</code></pre>
+<pre><code>##               Estimate Std. Error
+## (Intercept) 260.046190  6.1381101
+## age_c         1.807231  0.7352089
+## sexm        -19.416056  6.8399656
+## age_c:sexm   -1.137541  0.8096228</code></pre>
+<pre class="r"><code>bptest(fit)</code></pre>
+<pre><code>## 
+##  studentized Breusch-Pagan test
+## 
+## data:  fit
+## BP = 21.769, df = 3, p-value = 7.286e-05</code></pre>
+<p><em>Standard errors are bigger after accounting fir heteroskedasticity. According to R^2, 8.2% of the variability in cholesterol level is explained, but 7.3% for the adjusted R^2. This percentage is very low, but that is most likely due to only two variables used, when there should be many more variables explaining for the variance in cholesterol levels for this dataset. For example, after adding in maximum heart rate achieved (thalach), R^2 increased to 14.23%. </em></p>
+<pre class="r"><code>boot_dat &lt;- sample_frac(heart, replace = T)
+samp_distn &lt;- replicate(5000, {
+    boot_dat &lt;- sample_frac(heart, replace = T)
+    fit3 &lt;- lm(chol ~ age_c * sex, data = boot_dat)  #fit model
+    coef(fit3)
+})
+summary(fit)$coef[, 1:2]</code></pre>
+<pre><code>##               Estimate Std. Error
+## (Intercept) 260.046190  5.1520226
+## age_c         1.807231  0.5455367
+## sexm        -19.416056  6.2503432
+## age_c:sexm   -1.137541  0.6768682</code></pre>
+<pre class="r"><code>coeftest(fit, vcov = vcovHC(fit))[, 1:2]</code></pre>
+<pre><code>##               Estimate Std. Error
+## (Intercept) 260.046190  6.1381101
+## age_c         1.807231  0.7352089
+## sexm        -19.416056  6.8399656
+## age_c:sexm   -1.137541  0.8096228</code></pre>
+<pre class="r"><code>samp_distn %&gt;% t %&gt;% as.data.frame %&gt;% summarize_all(sd)</code></pre>
+<pre><code>##   (Intercept)    age_c     sexm age_c:sexm
+## 1    6.061692 0.720409 6.763941  0.7926788</code></pre>
+<p><em>The bootstrapped SE are slightly larger than the robust SEs which is larger than the original SEs. This makes sense because bootstrapping accounts for assumption violations as well as small sample sizes. Many samples are taken from the sample size to calculated for SEs which </em></p>
+</div>
+<div id="logistical-regression" class="section level2">
+<h2>Logistical Regression</h2>
+<pre class="r"><code>fitlr &lt;- glm(condition ~ age + sex + chol + trestbps + thalach, 
+    family = &quot;binomial&quot;, data = heart)
+coeftest(fitlr)</code></pre>
+<pre><code>## 
+## z test of coefficients:
+## 
+##               Estimate Std. Error z value  Pr(&gt;|z|)    
+## (Intercept)  0.3225738  1.8471624  0.1746   0.86137    
+## age          0.0141832  0.0177824  0.7976   0.42510    
+## sexm         1.7813776  0.3400196  5.2390 1.614e-07 ***
+## chol         0.0068318  0.0027649  2.4708   0.01348 *  
+## trestbps     0.0210625  0.0083693  2.5166   0.01185 *  
+## thalach     -0.0465391  0.0077423 -6.0110 1.843e-09 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<pre class="r"><code>exp(coef(fitlr))</code></pre>
+<pre><code>## (Intercept)         age        sexm        chol    trestbps     thalach 
+##   1.3806767   1.0142842   5.9380310   1.0068551   1.0212859   0.9545273</code></pre>
+<p><em>Controlling for sex, cholesterol levels, resting blood pressure, and maximum heart rate, the odds of having heart disease does not have a significant relationship with age (p=0.425)</em>
+<em>Controlling for all other variables, odds of having a heard dieases increase by a factor of 5.938 for males (significant, p&lt;0.05)</em>
+<em>Controlling for all other variables, for every unit increase in cholesterol level, odds of heart disease increase by a factor of 1.0068 (significant, p&lt;0.05).For every unit increase in resting blood pressure, odds of heart disease increas by a factor 1.021 (significant, p&lt;0.05). For every unit increase in maximum heart rate achieved, odds of heart disease increase by a factor of 0.954 (significant, p&lt;0.05).</em></p>
+</div>
+<div id="confusion-matrix" class="section level2">
+<h2>Confusion Matrix</h2>
+<pre class="r"><code>truth &lt;- heart$condition
+prob &lt;- predict(fitlr, type = &quot;response&quot;)
+pred &lt;- ifelse(prob &gt; 0.5, 1, 0)
+table(truth = heart$condition, prediction = pred) %&gt;% addmargins</code></pre>
+<pre><code>##      prediction
+## truth   0   1 Sum
+##   0   123  37 160
+##   1    50  87 137
+##   Sum 173 124 297</code></pre>
+<pre class="r"><code>class_diag(prob, heart$condition)</code></pre>
+<pre><code>##         acc      sens    spec       ppv       auc
+## 1 0.7070707 0.6350365 0.76875 0.7016129 0.8106752</code></pre>
+<pre class="r"><code># Density plot
+heart$logit &lt;- predict(fitlr)
+heart$condition &lt;- factor(heart$condition, levels = c(&quot;0&quot;, &quot;1&quot;))
+ggplot(heart, aes(logit, fill = condition)) + geom_density(alpha = 0.3) + 
+    geom_vline(xintercept = 0, lty = 2)</code></pre>
+<p><img src="/project2_files/figure-html/unnamed-chunk-7-1.png" width="768" style="display: block; margin: auto;" />
+<em>Accuracy: (123+87)/297=0.707</em>
+<em>TPR(sensitivity): 123/160=0.769</em>
+<em>TNR(specificity): 87/137=0.635</em>
+<em>PPV(precision): 123/173=0.710</em></p>
+</div>
+<div id="fold-cv" class="section level2">
+<h2>10-fold CV</h2>
+<pre class="r"><code>library(pROC)
+set.seed(1234)
+k = 10
+data &lt;- heart[sample(nrow(heart)), ]
+folds &lt;- cut(seq(1:nrow(heart)), breaks = k, labels = F)
+
+diags &lt;- NULL
+for (i in 1:k) {
+    train &lt;- data[folds != i, ]
+    test &lt;- data[folds == i, ]
+    truth &lt;- test$condition
+    fit10 &lt;- glm(condition ~ ., family = &quot;binomial&quot;, data = heart)
+    probs &lt;- predict(fit10, newdata = test, type = &quot;response&quot;)
+    diags &lt;- rbind(diags, class_diag(probs, truth))
+}
+summarize_all(diags, mean)</code></pre>
+<pre><code>##         acc      sens      spec       ppv       auc
+## 1 0.8478161 0.8019231 0.8807166 0.8451399 0.9281197</code></pre>
+<p><em>After performing a 10-fold cross validation on all of the predictors, the AUC was determined to be 0.930, which suggests the model, with all the predictors it contains, is very good. This AUC syggests that there’s a 93.0% probability that a randomly selected person with heart diseas has a higher predicted probability than someone without heart disease.</em></p>
+</div>
+<div id="lasso-regression-cv" class="section level2">
+<h2>LASSO Regression + CV</h2>
+<pre class="r"><code>library(glmnet)
+
+y &lt;- as.matrix(heart$condition)
+x &lt;- model.matrix(condition ~ ., data = heart)[, -1]
+cv &lt;- cv.glmnet(x, y, family = &quot;binomial&quot;)
+lasso &lt;- glmnet(x, y, family = &quot;binomial&quot;, lambda = cv$lambda.1se)
+coef(lasso)</code></pre>
+<pre><code>## 17 x 1 sparse Matrix of class &quot;dgCMatrix&quot;
+##                                s0
+## (Intercept)           -1.32280069
+## age                    .         
+## sexm                   .         
+## cp                     0.28976304
+## trestbps               .         
+## chol                   .         
+## fbs                    .         
+## restecg                .         
+## thalach                .         
+## exang                  0.47324328
+## oldpeak                0.17538660
+## slope                  0.05454719
+## ca                     0.55651601
+## thalnormal            -0.57252967
+## thalreversible defect  0.44088273
+## age_c                  .         
+## logit                  0.34570930</code></pre>
+<pre class="r"><code>set.seed(1234)
+k = 10
+data &lt;- heart %&gt;% sample_frac
+folds &lt;- ntile(1:nrow(data), n = 10)
+diags &lt;- NULL
+for (i in 1:k) {
+    train &lt;- data[folds != i, ]
+    test &lt;- data[folds == i, ]
+    truth &lt;- test$condition
+    fit &lt;- glm(condition ~ ., data = train, family = &quot;binomial&quot;)
+    
+    probs &lt;- predict(fit, newdata = test, type = &quot;response&quot;)
+    diags &lt;- rbind(diags, class_diag(probs, truth))
+}
+diags %&gt;% summarize_all(mean)</code></pre>
+<pre><code>##         acc      sens      spec       ppv       auc
+## 1 0.8350575 0.7920034 0.8629388 0.8341658 0.9028659</code></pre>
+<pre class="r"><code>class_diag(prob, heart$condition)</code></pre>
+<pre><code>##         acc      sens    spec       ppv       auc
+## 1 0.7070707 0.6350365 0.76875 0.7016129 0.8106752</code></pre>
+</div>

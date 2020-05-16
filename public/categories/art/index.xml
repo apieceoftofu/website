@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>art on Portfolio</title>
+    <link>/categories/art/</link>
+    <description>Recent content in art on Portfolio</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-US</language>
+    <lastBuildDate>Sun, 02 Oct 2016 22:55:05 -0400</lastBuildDate>
+    
+	<atom:link href="/categories/art/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Artwork</title>
+      <link>/art1/</link>
+      <pubDate>Sun, 02 Oct 2016 22:55:05 -0400</pubDate>
+      
+      <guid>/art1/</guid>
+      <description>Artwork Here are some of my art from HS till now. (I apologize for the extra content, creating a website was fun so I thought I would mess around with it a bit)
+Girl - Black &amp;amp; gold ink Breeze - Black &amp;amp; gold ink End - Black &amp;amp; gold ink Home - Watercolor Kite - Paint Tool SAI Koi - Photoshop CC Urania - Photoshop CC Northern Lights - Paint Tool SAI Painting Stars - Paint Tool SAI Imagination - Paint Tool SAI </description>
+    </item>
+    
+    <item>
+      <title>Artwork</title>
+      <link>/art2/</link>
+      <pubDate>Sun, 02 Oct 2016 22:55:05 -0400</pubDate>
+      
+      <guid>/art2/</guid>
+      <description>Artwork - Quarantine Procreate was used for all of this art
+Portrait 1 Portrait 2 Haikyuu!! (best anime) Nishinoya Miku Nakano from Quintessential Quintuplets Used an outfit I owned as reference </description>
+    </item>
+    
+  </channel>
+</rss>

@@ -1,0 +1,292 @@
+---
+title: "Exploratory Data Analysis - League of Legends TFT Set 2 Champions"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, fig.align = "center", warning = F, message = F,
+tidy=TRUE, tidy.opts=list(width.cutoff=60), R.options=list(max.print=100))
+```
+
+######Jiayin Li jl64556
+#####Introduction
+The two datasets contain information on the League of Legends Teamfight Tactics Set 2 champions. Teamfight Tactics is an 8-player game where players battle each other and try to win by buying, picking and positioning different units. Units are champions that have been assigned an "Origin" and "Class". Each different origin and class will unlock special bonuses called synergies. For example, if 2/4/6 champions with Ocean origin are placed on hte map, all allies will restore 10/30/60 mana/4 sec. To level up units, 3 of the same are needed for lv.2 and 9 for lv.3. When champions level up, their HP (health), Dmg (damage) and DPS (damage per second) increase. Many champion have different cost, HP, DPS, danage, mana, armor, attack speed and attack range and it is up to the player to determine which ones to buy and which synergies to use.
+
+In this project, the relationship between champion origin/class and stats such as armor and health will be explored. Champions belonging in classes such as Warden are expected to have higher armor due to their unique synergies. Origin/Classes consisting of mostly melee champions are also expected to have a higher armor, and HP due to their lacking in range. Champions in the Ranger class are expected to have the lowest armor and HP, due to their high range and damage. 
+
+The relationship between champion cost (1-5 gold), tier (S-E tier) and stats like HP, Dmg, and DPS will also be explored. It is expected that the higher the cost and tier, the higher the stats of a champion are. 
+
+It is possible that the dataset can help determine the most efficient and effective strategy for winning in teamfight tactics. However, the user would have to take into account many other variables such as RNG and time to develop a gameplay model, as well as some kind of algorith to predict popular player style and builds that are constantly changing with mechanics of the game. 
+
+
+#####Joining/Merging
+
+```{r}
+champ<- read.csv("champ.csv")
+tier<- read.csv("tier.csv")
+
+library(dplyr)
+tft1 <- champ %>% left_join(tier, by=c("Champion"="Champion"))
+tft <- tft1 %>% na.omit()
+tft %>% glimpse()
+```
+
+
+Left join was used to join the two datasets and no cases were removed because left_join keeps everything in the left dataset and every case in the column "Champion" had a match in the right dataset. One row containing NAs was removed.
+
+
+####Creating new variables average HP, DPS, and Dmg
+
+```{r}
+tft <- tft %>% mutate(avgHP=(HP1+HP2+HP3)/3, avgDPS=(DPS1+DPS2+DPS3)/3,
+                      avgDmg=(Dmg1+Dmg2+Dmg3)/3,
+                      HPscale1=(HP2-HP1)/HP1,HPscale2=(HP3-HP2)/HP2,
+                      DPSscale1=(DPS2-DPS1)/DPS1,
+                      DPSscale2=(DPS3-DPS2)/DPS2) %>% glimpse()
+```
+
+####Finding max and min, mean of different stats
+#####Max and min of avdHP, DPS, Dmg
+
+```{r}
+tftsumm <- tft %>% summarize(max(avgHP),min(avgHP),
+                  max(avgDPS),min(avgDPS),
+                  max(avgDmg),min(avgDmg)) %>% mutate_if(is.numeric,round) 
+
+tft %>% select(Champion, avgHP, avgDPS, avgDmg) %>% 
+  filter(avgHP==max(avgHP) | avgHP==min(avgHP) | avgDPS==max(avgDPS) | avgDPS==min(avgDPS) | 
+           avgDmg==max(avgDmg) | avgDmg==min(avgDmg))
+```
+
+
+Using the summarize function, max and min of average HP, DPS and Damage of all of the champions are found. Select and filter was then used to determine which champions corresponded to each max and min. Champions with the maximum average HP, 1812, out of set 2 are Amumu and Taric. Senna has the minimum average HP of 906. Zed and Master Yi has the max and min average Dmg of 151 and 50, respectively.
+
+
+#####Summary stats grouped by origin
+
+```{r}
+library(kableExtra)
+tftorigin <- tft %>% group_by(Origin) %>% 
+  summarize(mean_HP=mean(avgHP, na.rm=T), sd_HP=sd(avgHP, na.rm=T),
+            n=n(),
+            mean_DPS=mean(avgDPS, na.rm=T),sd_DPS=sd(avgDPS, na.rm=T),
+            n=n(),
+            mean_Dmg=mean(avgDmg, na.rm=T),sd_Dmg=sd(avgDmg, na.rm=T), 
+            n=n()) %>% arrange(Origin)
+
+kable(tftorigin) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+tftorigin %>% select(Origin, mean_HP) %>% arrange(desc(mean_HP))
+
+```
+
+
+Out of the origins, Electric, Glacial, and Variable have the highest mean HP while Woodland has the lowest mean HP. Due to Electric and Variable only having two champions, that data doesn't show much. Glacial, however, has a higher avg HP than other classes which makes sense because most of the champions in the Glacial origin are melee and would therefore need more HP to balance out the lack of range. Due to the "synergy" of Woodland, they are expected to have lower HP.
+
+
+#####Summary stats grouped by class
+
+```{r}
+tftclass <-tft %>% group_by(Class) %>% 
+  summarize(mean_HP=mean(avgHP, na.rm=T), sd_HP=sd(avgHP, na.rm=T),
+            n=n(),
+            mean_DPS=mean(avgDPS, na.rm=T),sd_DPS=sd(avgDPS, na.rm=T),
+            n=n(),
+            mean_Dmg=mean(avgDmg,na.rm=T),
+            sd_Dmg=sd(avgDmg,na.rm=T), n=n())
+
+kable(tftclass) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+tftclass %>% select(Class, mean_Dmg) %>%arrange(desc(mean_Dmg))
+```
+
+
+Out of the classes, Avatar has the highest avg damage but because it is limited to one champion who is rare and of high cost, this data does not show much. Assassin, Blademaster, and Berserker are next on the chart, which is expected because champions in those classes are mostly melee, which means they need more damage to balance out their lack of range. Mystic has the lowest avg damage, also expected because champions of that class are mostly supports.
+
+
+#####Mean armor grouped by class
+
+```{r}
+tftclass_armor <-tft %>% group_by(Class) %>% 
+  summarize(mean_armor=mean(Armor, na.rm=T), sd_armor=sd(Armor, na.rm=T),n=n())
+tftclass_armor %>% select(Class, mean_armor)%>%
+  arrange(desc(mean_armor))
+```
+
+
+Looking at the mean armor statistics grouped by class, Wardens have the highest mean armor while mystic the lowest. The "synergies" of Wardens supports this finding. Mystic champions are supports, which are mostly very "squishy". Similarily, Rangers also have low mean armor because they are attackers with high range; this characteristic makes them lacking in defense.
+
+
+
+#####Summary stats grouped by cost
+
+```{r}
+tftcost <-tft %>% group_by(Cost) %>% 
+  summarize(mean_HP=mean(avgHP, na.rm=T), sd_HP=sd(avgHP, na.rm=T),
+            n=n(),
+            mean_DPS=mean(avgDPS, na.rm=T),sd_DPS=sd(avgDPS, na.rm=T),
+            n=n(),
+            mean_Dmg=mean(avgDmg,na.rm=T),
+            sd_Dmg=sd(avgDmg,na.rm=T), n=n())
+
+kable(tftcost) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+tftcost %>% select(Cost, mean_DPS) %>%arrange(desc(mean_DPS))
+```
+
+
+Comparing the avg DPS when grouped by cost, champions who cost more are expected to have a higher average DPS. This is also an expected pattern.
+
+
+####Correlation Matrix
+
+```{r}
+tft$Tier2 = c(2,3,4,5,6,1)[as.numeric(tft$Tier)]
+tft2 <- tft%>% select(Cost, Tier2, avgHP, avgDPS, avgDmg, DPSscale1, DPSscale2)
+cortft <- round(cor(tft2),5)
+kable(cortft) %>% 
+  kable_styling(bootstrap_options = "striped", full_width = F)
+```
+
+
+There is a strong negative correlation between tier and cost, and strong positive correlations between cost and avgHP and avgDPS. There is also a strong correlation beteen avgDPS and avgDmg, although it is surprising the correlation isn't close to 1.
+
+
+####Correlation Heatmap
+
+```{r}
+library(reshape2)
+melted_cortft <- melt(cortft)
+head(melted_cortft)
+
+library(ggplot2)
+ggplot(data = melted_cortft, aes(Var2, Var1, fill = value))+
+  geom_tile(color = "white")+
+  scale_fill_gradient2(low = "hotpink", high = "navyblue", mid = "white", midpoint = 0, limit = c(-1,1), space = "Lab",name="Correlation") +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+                                   size = 12, hjust = 1))+
+  coord_fixed() + ggtitle("Correlation Heatmap") + ylab("") + xlab("") 
+```
+
+
+The correlation heatmap showed that there is a strong negative correlation between champion tier (S, A, B..etc) and cost. There also seems to be a correlation between avg HP, DPS, and Dmg and cost. There seems to be no correlation between cost/tier and DPS scaling, which suggests that higher cost/tier champions do not scale more than lower cost/tier champions. This was a bit surprising, although it makes sense that higher tier champions have higher HPS, so even if scaling is the same they will still have significantly higher HP by level 3.
+
+
+####Plot #1
+
+```{r}
+library(RColorBrewer)
+myPalette <- colorRampPalette(rev(brewer.pal(11, "Spectral")))
+sc <- scale_colour_gradientn(colours = myPalette(100), limits=c(1, 8))
+library(ggplot2)
+ggplot(tft, aes(avgDPS, avgDmg)) + 
+  geom_point(aes(color=Cost, size=Tier2)) +
+  sc +
+  ggtitle("avgDPS vs. avgDmg") + ylab("avgDPS") + xlab("avgDmg")
+```
+
+
+Trends from this scatterplot suggest that avgDmg is correlated to avgDPS, although there are some exceptions that are from champions who have an attack speed higher than 1. The dots are colored by cost and sized by tier, and a general trend is that higher avgDmg/DPS corresponds to champions of higher cost, although the pattern is not as consistent for tiers. Champions that are tier 1 (S) do not necessarily have the highest average damage/DPS.
+
+
+####Plot #2
+
+```{r}
+ggplot(tft, aes(Tier2, Atk.spd)) + 
+  geom_point(aes(color=Cost, size=Tier2)) + stat_summary(fun = "mean", colour = "red", size = 2, geom = "point") +
+  ggtitle("Atk Spd by Tier with median in red") + ylab("Atk.spd") + xlab("Tier")
+```
+
+
+Champions that are of higher tier corresponds to higher cost and generally higher attack speed (with the exception of tier 5/D which has a higher attack speed than tiers A-C).
+
+
+####Plot #3
+
+```{r}
+ggplot(tft, aes(x=HP1,y=DPS1)) + 
+  geom_point(aes(color=Cost, size=Tier2)) + 
+  stat_summary(fun = "mean", colour = "red", size = 1, geom = "line") +
+  sc +
+  ggtitle("HP vs DPS with mean in red") + xlab("HP") + ylab("DPS")
+```
+
+
+Although there seems to be a upper trend in HP vs DPS by looking at the scatterplot, the mean in red showed that pattern is very inconsistent across different HPs. Higher average HP does seem to correspond to higher cost champions but does not correspond to champions of higher tiers.
+
+
+####Clustering Analysis - K-Means
+
+```{r}
+wss<-vector() 
+for(i in 1:10){temp<- tft%>% select(avgDPS, avgDmg, avgHP) %>% kmeans(i)
+wss[i]<-temp$tot.withinss}
+
+ggplot()+geom_point(aes(x=1:10,y=wss))+geom_path(aes(x=1:10,y=wss))+  xlab("clusters")+scale_x_continuous(breaks=1:10)
+
+library(cluster)
+tftcluster1<-tft%>%select(avgDPS, avgDmg, avgHP)
+sil_width <- vector() 
+for(i in 2:10){    
+  kms <- kmeans(tftcluster1,centers=i) 
+  sil <- silhouette(kms$cluster,dist(tftcluster1)) 
+  sil_width[i]<-mean(sil[,3])}
+ggplot()+geom_line(aes(x=1:10,y=sil_width))+scale_x_continuous(name="k",breaks=1:10)
+
+kmeans <- tftcluster1 %>% kmeans(5)
+kmeans
+```
+
+
+WSS and silhouette width were first computed for the variables avgDmg, avg DPS, and avgHP. Both results seem to suggest using 7 clusters but 5 clusters were chosen.
+
+
+```{r}
+kmeansclust <- tftcluster1 %>% mutate(cluster=as.factor(kmeans$cluster))
+kmeansclust %>% ggplot(aes(avgDmg,avgDPS, color=cluster)) + geom_point()
+kmeansclust %>% ggplot(aes(avgHP,avgDPS, color=cluster)) + geom_point()
+
+```
+
+```{r}
+
+library(tidyr)
+confmat<-kmeansclust %>%
+  mutate(cost= tft$Cost)%>%
+  group_by(cost)%>%
+  count(cluster) %>% 
+  pivot_wider(names_from=cluster,values_from= n,values_fill = list('n'=0))
+
+confmat
+round(sum(diag(as.matrix(confmat[,2:6])))/sum(confmat[,2:6]),6)
+
+```
+
+
+K-means clustering analysis was used to cluster the variables average HP, DPS, and Dmg into 5 clusters, which may correspond to the Cost variable. The clusters shown with average DPS vs Dmg seem to be everywhere and there are no distint clusters. The clusters with avg HP and DPS seem to be more distinct. This suggests that another cluster value for the frist two variables should be used or that there is no distinct pattern to the variables. After clustering, the accuracy was attempted to be checked but a very low accuracy of 23.6% was found. It is uncertain whether that was due to the number of clusters chosen, wrong code, or wrong code. Another analysis (shown below) was done using 6 clusters but the resulting accuracy of 16.3% was even lower.
+
+
+```{r}
+kmeans2 <- tftcluster1 %>% kmeans(6)
+
+kmeansclust2 <- tftcluster1 %>%
+  mutate(cluster=as.factor(kmeans2$cluster))
+
+library(tidyr)
+confmat2<-kmeansclust2 %>%
+  mutate(tier2= tft$Tier2)%>%
+  group_by(tier2)%>%
+  count(cluster) %>% 
+  pivot_wider(names_from=cluster,values_from= n,values_fill = list('n'=0))
+
+confmat2
+round(sum(diag(as.matrix(confmat2[,2:7])))/sum(confmat2[,2:7]),7)
+
+```
+

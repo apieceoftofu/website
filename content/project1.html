@@ -1,0 +1,1510 @@
+---
+title: "Exploratory Data Analysis - League of Legends TFT Set 2 Champions"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+<script src="/rmarkdown-libs/kePrint/kePrint.js"></script>
+
+
+<p>######Jiayin Li jl64556
+#####Introduction
+The two datasets contain information on the League of Legends Teamfight Tactics Set 2 champions. Teamfight Tactics is an 8-player game where players battle each other and try to win by buying, picking and positioning different units. Units are champions that have been assigned an “Origin” and “Class”. Each different origin and class will unlock special bonuses called synergies. For example, if 2/4/6 champions with Ocean origin are placed on hte map, all allies will restore 10/30/60 mana/4 sec. To level up units, 3 of the same are needed for lv.2 and 9 for lv.3. When champions level up, their HP (health), Dmg (damage) and DPS (damage per second) increase. Many champion have different cost, HP, DPS, danage, mana, armor, attack speed and attack range and it is up to the player to determine which ones to buy and which synergies to use.</p>
+<p>In this project, the relationship between champion origin/class and stats such as armor and health will be explored. Champions belonging in classes such as Warden are expected to have higher armor due to their unique synergies. Origin/Classes consisting of mostly melee champions are also expected to have a higher armor, and HP due to their lacking in range. Champions in the Ranger class are expected to have the lowest armor and HP, due to their high range and damage.</p>
+<p>The relationship between champion cost (1-5 gold), tier (S-E tier) and stats like HP, Dmg, and DPS will also be explored. It is expected that the higher the cost and tier, the higher the stats of a champion are.</p>
+<p>It is possible that the dataset can help determine the most efficient and effective strategy for winning in teamfight tactics. However, the user would have to take into account many other variables such as RNG and time to develop a gameplay model, as well as some kind of algorith to predict popular player style and builds that are constantly changing with mechanics of the game.</p>
+<p>#####Joining/Merging</p>
+<pre class="r"><code>champ &lt;- read.csv(&quot;champ.csv&quot;)
+tier &lt;- read.csv(&quot;tier.csv&quot;)
+
+library(dplyr)
+tft1 &lt;- champ %&gt;% left_join(tier, by = c(Champion = &quot;Champion&quot;))
+tft &lt;- tft1 %&gt;% na.omit()
+tft %&gt;% glimpse()</code></pre>
+<pre><code>## Observations: 55
+## Variables: 19
+## $ Champion &lt;fct&gt; Aatrox, Amumu, Annie, Ashe, Azir, Brand, Braum, Diana, Dr.Mu…
+## $ Origin   &lt;fct&gt; Light, Inferno, Inferno, Crystal, Desert, Inferno, Glacial, …
+## $ Class    &lt;fct&gt; Blademaster, Warden, Summoner, Ranger, Summoner, Mage, Warde…
+## $ Tier     &lt;fct&gt; C, A, S, S, A, B, C, D, A, B, C, B, D, A, A, S, B, C, B, B, …
+## $ Cost     &lt;int&gt; 3, 5, 4, 4, 3, 4, 2, 2, 3, 3, 1, 4, 2, 3, 4, 3, 1, 2, 1, 4, …
+## $ Mana     &lt;int&gt; 70, 150, 75, 35, 100, 80, 65, 100, 125, 30, 100, 125, 125, 1…
+## $ Armor    &lt;int&gt; 35, 150, 20, 20, 20, 25, 60, 20, 35, 20, 25, 20, 30, 20, 25,…
+## $ MR       &lt;int&gt; 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, …
+## $ Atk.spd  &lt;dbl&gt; 0.70, 0.75, 0.70, 0.80, 0.80, 0.70, 0.60, 0.70, 0.60, 0.70, …
+## $ Range    &lt;dbl&gt; 1, 1, 3, 4, 3, 3, 1, 1, 1, 3, 2, 3, 1, 3, 1, 3, 3, 2, 1, 3, …
+## $ HP1      &lt;int&gt; 800, 900, 700, 550, 600, 700, 750, 550, 800, 650, 600, 600, …
+## $ DPS1     &lt;int&gt; 42, 41, 31, 48, 44, 39, 24, 35, 36, 46, 30, 31, 44, 35, 60, …
+## $ Dmg1     &lt;int&gt; 65, 55, 43, 60, 55, 55, 40, 50, 60, 65, 50, 45, 55, 50, 75, …
+## $ HP2      &lt;int&gt; 1440, 1620, 1260, 990, 1080, 1260, 1350, 990, 1440, 1170, 10…
+## $ DPS2     &lt;int&gt; 76, 74, 57, 86, 79, 69, 43, 63, 65, 82, 54, 57, 79, 63, 108,…
+## $ Dmg2     &lt;int&gt; 117, 99, 81, 108, 99, 99, 72, 90, 108, 117, 90, 81, 0, 90, 1…
+## $ HP3      &lt;int&gt; 2592, 2916, 2268, 1782, 1944, 2268, 2430, 1782, 2592, 2106, …
+## $ DPS3     &lt;int&gt; 137, 134, 102, 156, 143, 125, 78, 113, 117, 147, 97, 102, 14…
+## $ Dmg3     &lt;int&gt; 211, 178, 146, 194, 178, 178, 130, 162, 194, 211, 162, 146, …</code></pre>
+<p>Left join was used to join the two datasets and no cases were removed because left_join keeps everything in the left dataset and every case in the column “Champion” had a match in the right dataset. One row containing NAs was removed.</p>
+<p>####Creating new variables average HP, DPS, and Dmg</p>
+<pre class="r"><code>tft &lt;- tft %&gt;% mutate(avgHP = (HP1 + HP2 + HP3)/3, avgDPS = (DPS1 + 
+    DPS2 + DPS3)/3, avgDmg = (Dmg1 + Dmg2 + Dmg3)/3, HPscale1 = (HP2 - 
+    HP1)/HP1, HPscale2 = (HP3 - HP2)/HP2, DPSscale1 = (DPS2 - 
+    DPS1)/DPS1, DPSscale2 = (DPS3 - DPS2)/DPS2) %&gt;% glimpse()</code></pre>
+<pre><code>## Observations: 55
+## Variables: 26
+## $ Champion  &lt;fct&gt; Aatrox, Amumu, Annie, Ashe, Azir, Brand, Braum, Diana, Dr.M…
+## $ Origin    &lt;fct&gt; Light, Inferno, Inferno, Crystal, Desert, Inferno, Glacial,…
+## $ Class     &lt;fct&gt; Blademaster, Warden, Summoner, Ranger, Summoner, Mage, Ward…
+## $ Tier      &lt;fct&gt; C, A, S, S, A, B, C, D, A, B, C, B, D, A, A, S, B, C, B, B,…
+## $ Cost      &lt;int&gt; 3, 5, 4, 4, 3, 4, 2, 2, 3, 3, 1, 4, 2, 3, 4, 3, 1, 2, 1, 4,…
+## $ Mana      &lt;int&gt; 70, 150, 75, 35, 100, 80, 65, 100, 125, 30, 100, 125, 125, …
+## $ Armor     &lt;int&gt; 35, 150, 20, 20, 20, 25, 60, 20, 35, 20, 25, 20, 30, 20, 25…
+## $ MR        &lt;int&gt; 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20,…
+## $ Atk.spd   &lt;dbl&gt; 0.70, 0.75, 0.70, 0.80, 0.80, 0.70, 0.60, 0.70, 0.60, 0.70,…
+## $ Range     &lt;dbl&gt; 1, 1, 3, 4, 3, 3, 1, 1, 1, 3, 2, 3, 1, 3, 1, 3, 3, 2, 1, 3,…
+## $ HP1       &lt;int&gt; 800, 900, 700, 550, 600, 700, 750, 550, 800, 650, 600, 600,…
+## $ DPS1      &lt;int&gt; 42, 41, 31, 48, 44, 39, 24, 35, 36, 46, 30, 31, 44, 35, 60,…
+## $ Dmg1      &lt;int&gt; 65, 55, 43, 60, 55, 55, 40, 50, 60, 65, 50, 45, 55, 50, 75,…
+## $ HP2       &lt;int&gt; 1440, 1620, 1260, 990, 1080, 1260, 1350, 990, 1440, 1170, 1…
+## $ DPS2      &lt;int&gt; 76, 74, 57, 86, 79, 69, 43, 63, 65, 82, 54, 57, 79, 63, 108…
+## $ Dmg2      &lt;int&gt; 117, 99, 81, 108, 99, 99, 72, 90, 108, 117, 90, 81, 0, 90, …
+## $ HP3       &lt;int&gt; 2592, 2916, 2268, 1782, 1944, 2268, 2430, 1782, 2592, 2106,…
+## $ DPS3      &lt;int&gt; 137, 134, 102, 156, 143, 125, 78, 113, 117, 147, 97, 102, 1…
+## $ Dmg3      &lt;int&gt; 211, 178, 146, 194, 178, 178, 130, 162, 194, 211, 162, 146,…
+## $ avgHP     &lt;dbl&gt; 1610.667, 1812.000, 1409.333, 1107.333, 1208.000, 1409.333,…
+## $ avgDPS    &lt;dbl&gt; 85.00000, 83.00000, 63.33333, 96.66667, 88.66667, 77.66667,…
+## $ avgDmg    &lt;dbl&gt; 131.00000, 110.66667, 90.00000, 120.66667, 110.66667, 110.6…
+## $ HPscale1  &lt;dbl&gt; 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8,…
+## $ HPscale2  &lt;dbl&gt; 0.800, 0.800, 0.800, 0.800, 0.800, 0.800, 0.800, 0.800, 0.8…
+## $ DPSscale1 &lt;dbl&gt; 0.8095238, 0.8048780, 0.8387097, 0.7916667, 0.7954545, 0.76…
+## $ DPSscale2 &lt;dbl&gt; 0.8026316, 0.8108108, 0.7894737, 0.8139535, 0.8101266, 0.81…</code></pre>
+<p>####Finding max and min, mean of different stats
+#####Max and min of avdHP, DPS, Dmg</p>
+<pre class="r"><code>tftsumm &lt;- tft %&gt;% summarize(max(avgHP), min(avgHP), max(avgDPS), 
+    min(avgDPS), max(avgDmg), min(avgDmg)) %&gt;% mutate_if(is.numeric, 
+    round)
+
+tft %&gt;% select(Champion, avgHP, avgDPS, avgDmg) %&gt;% filter(avgHP == 
+    max(avgHP) | avgHP == min(avgHP) | avgDPS == max(avgDPS) | 
+    avgDPS == min(avgDPS) | avgDmg == max(avgDmg) | avgDmg == 
+    min(avgDmg))</code></pre>
+<pre><code>##    Champion    avgHP    avgDPS    avgDmg
+## 1     Amumu 1812.000  83.00000 110.66667
+## 2   Kha&#39;Zix 1510.000 120.66667 151.00000
+## 3   Kog&#39;Maw 1006.667  35.66667  50.33333
+## 4 Master Yi 1711.333 155.00000 141.00000
+## 5     Senna  906.000  63.33333  90.66667
+## 6     Taric 1812.000  78.33333 120.66667
+## 7       Zed 1711.333 155.00000 141.00000
+## 8      Zyra 1006.667  32.66667  50.33333</code></pre>
+<p>Using the summarize function, max and min of average HP, DPS and Damage of all of the champions are found. Select and filter was then used to determine which champions corresponded to each max and min. Champions with the maximum average HP, 1812, out of set 2 are Amumu and Taric. Senna has the minimum average HP of 906. Zed and Master Yi has the max and min average Dmg of 151 and 50, respectively.</p>
+<p>#####Summary stats grouped by origin</p>
+<pre class="r"><code>library(kableExtra)
+tftorigin &lt;- tft %&gt;% group_by(Origin) %&gt;% summarize(mean_HP = mean(avgHP, 
+    na.rm = T), sd_HP = sd(avgHP, na.rm = T), n = n(), mean_DPS = mean(avgDPS, 
+    na.rm = T), sd_DPS = sd(avgDPS, na.rm = T), n = n(), mean_Dmg = mean(avgDmg, 
+    na.rm = T), sd_Dmg = sd(avgDmg, na.rm = T), n = n()) %&gt;% 
+    arrange(Origin)
+
+kable(tftorigin) %&gt;% kable_styling(bootstrap_options = c(&quot;striped&quot;, 
+    &quot;hover&quot;, &quot;condensed&quot;, &quot;responsive&quot;))</code></pre>
+<table class="table table-striped table-hover table-condensed table-responsive" style="margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+Origin
+</th>
+<th style="text-align:right;">
+mean_HP
+</th>
+<th style="text-align:right;">
+sd_HP
+</th>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:right;">
+mean_DPS
+</th>
+<th style="text-align:right;">
+sd_DPS
+</th>
+<th style="text-align:right;">
+mean_Dmg
+</th>
+<th style="text-align:right;">
+sd_Dmg
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Cloud
+</td>
+<td style="text-align:right;">
+1208.000
+</td>
+<td style="text-align:right;">
+0.00000
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+74.00000
+</td>
+<td style="text-align:right;">
+15.084945
+</td>
+<td style="text-align:right;">
+105.66667
+</td>
+<td style="text-align:right;">
+21.213203
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Crystal
+</td>
+<td style="text-align:right;">
+1409.333
+</td>
+<td style="text-align:right;">
+362.95883
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+84.44444
+</td>
+<td style="text-align:right;">
+10.584755
+</td>
+<td style="text-align:right;">
+120.66667
+</td>
+<td style="text-align:right;">
+0.000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Desert
+</td>
+<td style="text-align:right;">
+1283.500
+</td>
+<td style="text-align:right;">
+151.00000
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+89.91667
+</td>
+<td style="text-align:right;">
+21.561926
+</td>
+<td style="text-align:right;">
+123.25000
+</td>
+<td style="text-align:right;">
+19.091156
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Electric
+</td>
+<td style="text-align:right;">
+1510.000
+</td>
+<td style="text-align:right;">
+284.72833
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+105.33333
+</td>
+<td style="text-align:right;">
+70.239274
+</td>
+<td style="text-align:right;">
+120.83333
+</td>
+<td style="text-align:right;">
+28.519973
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Glacial
+</td>
+<td style="text-align:right;">
+1510.000
+</td>
+<td style="text-align:right;">
+201.33333
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+79.53333
+</td>
+<td style="text-align:right;">
+25.561038
+</td>
+<td style="text-align:right;">
+114.80000
+</td>
+<td style="text-align:right;">
+24.228771
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Inferno
+</td>
+<td style="text-align:right;">
+1308.667
+</td>
+<td style="text-align:right;">
+272.60662
+</td>
+<td style="text-align:right;">
+7
+</td>
+<td style="text-align:right;">
+68.61905
+</td>
+<td style="text-align:right;">
+17.425427
+</td>
+<td style="text-align:right;">
+99.09524
+</td>
+<td style="text-align:right;">
+23.558213
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Light
+</td>
+<td style="text-align:right;">
+1351.810
+</td>
+<td style="text-align:right;">
+238.62561
+</td>
+<td style="text-align:right;">
+7
+</td>
+<td style="text-align:right;">
+76.95238
+</td>
+<td style="text-align:right;">
+20.447248
+</td>
+<td style="text-align:right;">
+104.66667
+</td>
+<td style="text-align:right;">
+25.746629
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Lunar
+</td>
+<td style="text-align:right;">
+1258.333
+</td>
+<td style="text-align:right;">
+71.18208
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+63.00000
+</td>
+<td style="text-align:right;">
+10.370900
+</td>
+<td style="text-align:right;">
+100.66667
+</td>
+<td style="text-align:right;">
+0.000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Mountain
+</td>
+<td style="text-align:right;">
+1359.000
+</td>
+<td style="text-align:right;">
+498.27458
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+59.33333
+</td>
+<td style="text-align:right;">
+9.899495
+</td>
+<td style="text-align:right;">
+100.66667
+</td>
+<td style="text-align:right;">
+28.284271
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Ocean
+</td>
+<td style="text-align:right;">
+1354.933
+</td>
+<td style="text-align:right;">
+284.01823
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+62.33333
+</td>
+<td style="text-align:right;">
+9.240611
+</td>
+<td style="text-align:right;">
+96.66667
+</td>
+<td style="text-align:right;">
+15.165751
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Poison
+</td>
+<td style="text-align:right;">
+1308.667
+</td>
+<td style="text-align:right;">
+302.00000
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+71.44444
+</td>
+<td style="text-align:right;">
+35.182592
+</td>
+<td style="text-align:right;">
+104.00000
+</td>
+<td style="text-align:right;">
+47.575671
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Shadow
+</td>
+<td style="text-align:right;">
+1328.800
+</td>
+<td style="text-align:right;">
+365.74016
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+83.20000
+</td>
+<td style="text-align:right;">
+41.918970
+</td>
+<td style="text-align:right;">
+108.80000
+</td>
+<td style="text-align:right;">
+26.058268
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Steel
+</td>
+<td style="text-align:right;">
+1308.667
+</td>
+<td style="text-align:right;">
+0.00000
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+90.66667
+</td>
+<td style="text-align:right;">
+8.485281
+</td>
+<td style="text-align:right;">
+120.66667
+</td>
+<td style="text-align:right;">
+0.000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Variable
+</td>
+<td style="text-align:right;">
+1510.000
+</td>
+<td style="text-align:right;">
+284.72833
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+101.33333
+</td>
+<td style="text-align:right;">
+13.670731
+</td>
+<td style="text-align:right;">
+131.00000
+</td>
+<td style="text-align:right;">
+0.000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Woodland
+</td>
+<td style="text-align:right;">
+1148.500
+</td>
+<td style="text-align:right;">
+135.85327
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+64.25000
+</td>
+<td style="text-align:right;">
+9.484393
+</td>
+<td style="text-align:right;">
+103.16667
+</td>
+<td style="text-align:right;">
+9.574271
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>tftorigin %&gt;% select(Origin, mean_HP) %&gt;% arrange(desc(mean_HP))</code></pre>
+<pre><code>## # A tibble: 15 x 2
+##    Origin   mean_HP
+##    &lt;fct&gt;      &lt;dbl&gt;
+##  1 Electric   1510 
+##  2 Glacial    1510 
+##  3 Variable   1510 
+##  4 Crystal    1409.
+##  5 Mountain   1359 
+##  6 Ocean      1355.
+##  7 Light      1352.
+##  8 Shadow     1329.
+##  9 Poison     1309.
+## 10 Steel      1309.
+## 11 Inferno    1309.
+## 12 Desert     1284.
+## 13 Lunar      1258.
+## 14 Cloud      1208 
+## 15 Woodland   1148.</code></pre>
+<p>Out of the origins, Electric, Glacial, and Variable have the highest mean HP while Woodland has the lowest mean HP. Due to Electric and Variable only having two champions, that data doesn’t show much. Glacial, however, has a higher avg HP than other classes which makes sense because most of the champions in the Glacial origin are melee and would therefore need more HP to balance out the lack of range. Due to the “synergy” of Woodland, they are expected to have lower HP.</p>
+<p>#####Summary stats grouped by class</p>
+<pre class="r"><code>tftclass &lt;- tft %&gt;% group_by(Class) %&gt;% summarize(mean_HP = mean(avgHP, 
+    na.rm = T), sd_HP = sd(avgHP, na.rm = T), n = n(), mean_DPS = mean(avgDPS, 
+    na.rm = T), sd_DPS = sd(avgDPS, na.rm = T), n = n(), mean_Dmg = mean(avgDmg, 
+    na.rm = T), sd_Dmg = sd(avgDmg, na.rm = T), n = n())
+
+kable(tftclass) %&gt;% kable_styling(bootstrap_options = c(&quot;striped&quot;, 
+    &quot;hover&quot;, &quot;condensed&quot;, &quot;responsive&quot;))</code></pre>
+<table class="table table-striped table-hover table-condensed table-responsive" style="margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+Class
+</th>
+<th style="text-align:right;">
+mean_HP
+</th>
+<th style="text-align:right;">
+sd_HP
+</th>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:right;">
+mean_DPS
+</th>
+<th style="text-align:right;">
+sd_DPS
+</th>
+<th style="text-align:right;">
+mean_Dmg
+</th>
+<th style="text-align:right;">
+sd_Dmg
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Assassin
+</td>
+<td style="text-align:right;">
+1389.200
+</td>
+<td style="text-align:right;">
+229.5553
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+106.86667
+</td>
+<td style="text-align:right;">
+32.314943
+</td>
+<td style="text-align:right;">
+128.86667
+</td>
+<td style="text-align:right;">
+19.39158
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Avatar
+</td>
+<td style="text-align:right;">
+1711.333
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+111.00000
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+131.00000
+</td>
+<td style="text-align:right;">
+NA
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Berserker
+</td>
+<td style="text-align:right;">
+1560.333
+</td>
+<td style="text-align:right;">
+208.7468
+</td>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+86.05556
+</td>
+<td style="text-align:right;">
+14.673357
+</td>
+<td style="text-align:right;">
+118.61111
+</td>
+<td style="text-align:right;">
+21.65119
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Blademaster
+</td>
+<td style="text-align:right;">
+1342.222
+</td>
+<td style="text-align:right;">
+232.4797
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+82.44444
+</td>
+<td style="text-align:right;">
+4.141032
+</td>
+<td style="text-align:right;">
+120.77778
+</td>
+<td style="text-align:right;">
+10.16712
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Druid
+</td>
+<td style="text-align:right;">
+1174.444
+</td>
+<td style="text-align:right;">
+153.7709
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+59.77778
+</td>
+<td style="text-align:right;">
+3.863409
+</td>
+<td style="text-align:right;">
+100.66667
+</td>
+<td style="text-align:right;">
+10.00000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Mage
+</td>
+<td style="text-align:right;">
+1139.778
+</td>
+<td style="text-align:right;">
+153.3192
+</td>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+62.77778
+</td>
+<td style="text-align:right;">
+11.908292
+</td>
+<td style="text-align:right;">
+94.00000
+</td>
+<td style="text-align:right;">
+15.05545
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Mystic
+</td>
+<td style="text-align:right;">
+1409.333
+</td>
+<td style="text-align:right;">
+246.5820
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+89.41667
+</td>
+<td style="text-align:right;">
+44.496671
+</td>
+<td style="text-align:right;">
+105.75000
+</td>
+<td style="text-align:right;">
+25.32072
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Mystic
+</td>
+<td style="text-align:right;">
+1208.000
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+63.33333
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+90.66667
+</td>
+<td style="text-align:right;">
+NA
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Predator
+</td>
+<td style="text-align:right;">
+1233.167
+</td>
+<td style="text-align:right;">
+151.0000
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+64.75000
+</td>
+<td style="text-align:right;">
+21.958505
+</td>
+<td style="text-align:right;">
+98.08333
+</td>
+<td style="text-align:right;">
+33.20015
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Ranger
+</td>
+<td style="text-align:right;">
+1208.000
+</td>
+<td style="text-align:right;">
+110.2748
+</td>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+84.00000
+</td>
+<td style="text-align:right;">
+18.201343
+</td>
+<td style="text-align:right;">
+117.44444
+</td>
+<td style="text-align:right;">
+20.77463
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Soulbound
+</td>
+<td style="text-align:right;">
+1006.667
+</td>
+<td style="text-align:right;">
+142.3642
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+84.16667
+</td>
+<td style="text-align:right;">
+29.462782
+</td>
+<td style="text-align:right;">
+110.83333
+</td>
+<td style="text-align:right;">
+28.51997
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Summoner
+</td>
+<td style="text-align:right;">
+1288.533
+</td>
+<td style="text-align:right;">
+279.3387
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+65.73333
+</td>
+<td style="text-align:right;">
+24.885739
+</td>
+<td style="text-align:right;">
+92.53333
+</td>
+<td style="text-align:right;">
+30.56378
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Warden
+</td>
+<td style="text-align:right;">
+1543.556
+</td>
+<td style="text-align:right;">
+219.3979
+</td>
+<td style="text-align:right;">
+9
+</td>
+<td style="text-align:right;">
+63.33333
+</td>
+<td style="text-align:right;">
+11.392005
+</td>
+<td style="text-align:right;">
+106.22222
+</td>
+<td style="text-align:right;">
+12.36033
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>tftclass %&gt;% select(Class, mean_Dmg) %&gt;% arrange(desc(mean_Dmg))</code></pre>
+<pre><code>## # A tibble: 13 x 2
+##    Class         mean_Dmg
+##    &lt;fct&gt;            &lt;dbl&gt;
+##  1 &quot;Avatar&quot;         131  
+##  2 &quot;Assassin&quot;       129. 
+##  3 &quot;Blademaster&quot;    121. 
+##  4 &quot;Berserker&quot;      119. 
+##  5 &quot;Ranger&quot;         117. 
+##  6 &quot;Soulbound&quot;      111. 
+##  7 &quot;Warden&quot;         106. 
+##  8 &quot;Mystic&quot;         106. 
+##  9 &quot;Druid&quot;          101. 
+## 10 &quot;Predator&quot;        98.1
+## 11 &quot;Mage&quot;            94  
+## 12 &quot;Summoner&quot;        92.5
+## 13 &quot;Mystic &quot;         90.7</code></pre>
+<p>Out of the classes, Avatar has the highest avg damage but because it is limited to one champion who is rare and of high cost, this data does not show much. Assassin, Blademaster, and Berserker are next on the chart, which is expected because champions in those classes are mostly melee, which means they need more damage to balance out their lack of range. Mystic has the lowest avg damage, also expected because champions of that class are mostly supports.</p>
+<p>#####Mean armor grouped by class</p>
+<pre class="r"><code>tftclass_armor &lt;- tft %&gt;% group_by(Class) %&gt;% summarize(mean_armor = mean(Armor, 
+    na.rm = T), sd_armor = sd(Armor, na.rm = T), n = n())
+tftclass_armor %&gt;% select(Class, mean_armor) %&gt;% arrange(desc(mean_armor))</code></pre>
+<pre><code>## # A tibble: 13 x 2
+##    Class         mean_armor
+##    &lt;fct&gt;              &lt;dbl&gt;
+##  1 &quot;Warden&quot;            57.8
+##  2 &quot;Berserker&quot;         34.2
+##  3 &quot;Blademaster&quot;       30  
+##  4 &quot;Predator&quot;          30  
+##  5 &quot;Druid&quot;             26.7
+##  6 &quot;Avatar&quot;            25  
+##  7 &quot;Soulbound&quot;         25  
+##  8 &quot;Assassin&quot;          24  
+##  9 &quot;Mystic&quot;            23.8
+## 10 &quot;Summoner&quot;          23  
+## 11 &quot;Mage&quot;              22.5
+## 12 &quot;Ranger&quot;            21.7
+## 13 &quot;Mystic &quot;           20</code></pre>
+<p>Looking at the mean armor statistics grouped by class, Wardens have the highest mean armor while mystic the lowest. The “synergies” of Wardens supports this finding. Mystic champions are supports, which are mostly very “squishy”. Similarily, Rangers also have low mean armor because they are attackers with high range; this characteristic makes them lacking in defense.</p>
+<p>#####Summary stats grouped by cost</p>
+<pre class="r"><code>tftcost &lt;- tft %&gt;% group_by(Cost) %&gt;% summarize(mean_HP = mean(avgHP, 
+    na.rm = T), sd_HP = sd(avgHP, na.rm = T), n = n(), mean_DPS = mean(avgDPS, 
+    na.rm = T), sd_DPS = sd(avgDPS, na.rm = T), n = n(), mean_Dmg = mean(avgDmg, 
+    na.rm = T), sd_Dmg = sd(avgDmg, na.rm = T), n = n())
+
+kable(tftcost) %&gt;% kable_styling(bootstrap_options = c(&quot;striped&quot;, 
+    &quot;hover&quot;, &quot;condensed&quot;, &quot;responsive&quot;))</code></pre>
+<table class="table table-striped table-hover table-condensed table-responsive" style="margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+Cost
+</th>
+<th style="text-align:right;">
+mean_HP
+</th>
+<th style="text-align:right;">
+sd_HP
+</th>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:right;">
+mean_DPS
+</th>
+<th style="text-align:right;">
+sd_DPS
+</th>
+<th style="text-align:right;">
+mean_Dmg
+</th>
+<th style="text-align:right;">
+sd_Dmg
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1185.333
+</td>
+<td style="text-align:right;">
+128.3590
+</td>
+<td style="text-align:right;">
+12
+</td>
+<td style="text-align:right;">
+53.77778
+</td>
+<td style="text-align:right;">
+10.62333
+</td>
+<td style="text-align:right;">
+89.77778
+</td>
+<td style="text-align:right;">
+22.04144
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+1226.952
+</td>
+<td style="text-align:right;">
+225.7285
+</td>
+<td style="text-align:right;">
+14
+</td>
+<td style="text-align:right;">
+70.26190
+</td>
+<td style="text-align:right;">
+13.20138
+</td>
+<td style="text-align:right;">
+101.88095
+</td>
+<td style="text-align:right;">
+17.77716
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+1378.359
+</td>
+<td style="text-align:right;">
+202.9402
+</td>
+<td style="text-align:right;">
+13
+</td>
+<td style="text-align:right;">
+78.87179
+</td>
+<td style="text-align:right;">
+12.76028
+</td>
+<td style="text-align:right;">
+114.61538
+</td>
+<td style="text-align:right;">
+15.14122
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+1419.400
+</td>
+<td style="text-align:right;">
+239.3995
+</td>
+<td style="text-align:right;">
+10
+</td>
+<td style="text-align:right;">
+90.33333
+</td>
+<td style="text-align:right;">
+21.38478
+</td>
+<td style="text-align:right;">
+122.76667
+</td>
+<td style="text-align:right;">
+20.70132
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+1711.333
+</td>
+<td style="text-align:right;">
+110.2748
+</td>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+109.72222
+</td>
+<td style="text-align:right;">
+37.25135
+</td>
+<td style="text-align:right;">
+124.16667
+</td>
+<td style="text-align:right;">
+16.49343
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>tftcost %&gt;% select(Cost, mean_DPS) %&gt;% arrange(desc(mean_DPS))</code></pre>
+<pre><code>## # A tibble: 5 x 2
+##    Cost mean_DPS
+##   &lt;int&gt;    &lt;dbl&gt;
+## 1     5    110. 
+## 2     4     90.3
+## 3     3     78.9
+## 4     2     70.3
+## 5     1     53.8</code></pre>
+<p>Comparing the avg DPS when grouped by cost, champions who cost more are expected to have a higher average DPS. This is also an expected pattern.</p>
+<p>####Correlation Matrix</p>
+<pre class="r"><code>tft$Tier2 = c(2, 3, 4, 5, 6, 1)[as.numeric(tft$Tier)]
+tft2 &lt;- tft %&gt;% select(Cost, Tier2, avgHP, avgDPS, avgDmg, DPSscale1, 
+    DPSscale2)
+cortft &lt;- round(cor(tft2), 5)
+kable(cortft) %&gt;% kable_styling(bootstrap_options = &quot;striped&quot;, 
+    full_width = F)</code></pre>
+<table class="table table-striped" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+</th>
+<th style="text-align:right;">
+Cost
+</th>
+<th style="text-align:right;">
+Tier2
+</th>
+<th style="text-align:right;">
+avgHP
+</th>
+<th style="text-align:right;">
+avgDPS
+</th>
+<th style="text-align:right;">
+avgDmg
+</th>
+<th style="text-align:right;">
+DPSscale1
+</th>
+<th style="text-align:right;">
+DPSscale2
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Cost
+</td>
+<td style="text-align:right;">
+1.00000
+</td>
+<td style="text-align:right;">
+-0.74100
+</td>
+<td style="text-align:right;">
+0.60966
+</td>
+<td style="text-align:right;">
+0.68706
+</td>
+<td style="text-align:right;">
+0.56351
+</td>
+<td style="text-align:right;">
+0.07516
+</td>
+<td style="text-align:right;">
+0.11291
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Tier2
+</td>
+<td style="text-align:right;">
+-0.74100
+</td>
+<td style="text-align:right;">
+1.00000
+</td>
+<td style="text-align:right;">
+-0.43018
+</td>
+<td style="text-align:right;">
+-0.51281
+</td>
+<td style="text-align:right;">
+-0.43615
+</td>
+<td style="text-align:right;">
+-0.01635
+</td>
+<td style="text-align:right;">
+-0.12241
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+avgHP
+</td>
+<td style="text-align:right;">
+0.60966
+</td>
+<td style="text-align:right;">
+-0.43018
+</td>
+<td style="text-align:right;">
+1.00000
+</td>
+<td style="text-align:right;">
+0.50140
+</td>
+<td style="text-align:right;">
+0.57143
+</td>
+<td style="text-align:right;">
+-0.09263
+</td>
+<td style="text-align:right;">
+0.09469
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+avgDPS
+</td>
+<td style="text-align:right;">
+0.68706
+</td>
+<td style="text-align:right;">
+-0.51281
+</td>
+<td style="text-align:right;">
+0.50140
+</td>
+<td style="text-align:right;">
+1.00000
+</td>
+<td style="text-align:right;">
+0.80911
+</td>
+<td style="text-align:right;">
+0.04032
+</td>
+<td style="text-align:right;">
+-0.08284
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+avgDmg
+</td>
+<td style="text-align:right;">
+0.56351
+</td>
+<td style="text-align:right;">
+-0.43615
+</td>
+<td style="text-align:right;">
+0.57143
+</td>
+<td style="text-align:right;">
+0.80911
+</td>
+<td style="text-align:right;">
+1.00000
+</td>
+<td style="text-align:right;">
+-0.05473
+</td>
+<td style="text-align:right;">
+-0.15599
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+DPSscale1
+</td>
+<td style="text-align:right;">
+0.07516
+</td>
+<td style="text-align:right;">
+-0.01635
+</td>
+<td style="text-align:right;">
+-0.09263
+</td>
+<td style="text-align:right;">
+0.04032
+</td>
+<td style="text-align:right;">
+-0.05473
+</td>
+<td style="text-align:right;">
+1.00000
+</td>
+<td style="text-align:right;">
+-0.30331
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+DPSscale2
+</td>
+<td style="text-align:right;">
+0.11291
+</td>
+<td style="text-align:right;">
+-0.12241
+</td>
+<td style="text-align:right;">
+0.09469
+</td>
+<td style="text-align:right;">
+-0.08284
+</td>
+<td style="text-align:right;">
+-0.15599
+</td>
+<td style="text-align:right;">
+-0.30331
+</td>
+<td style="text-align:right;">
+1.00000
+</td>
+</tr>
+</tbody>
+</table>
+<p>There is a strong negative correlation between tier and cost, and strong positive correlations between cost and avgHP and avgDPS. There is also a strong correlation beteen avgDPS and avgDmg, although it is surprising the correlation isn’t close to 1.</p>
+<p>####Correlation Heatmap</p>
+<pre class="r"><code>library(reshape2)
+melted_cortft &lt;- melt(cortft)
+head(melted_cortft)</code></pre>
+<pre><code>##        Var1 Var2    value
+## 1      Cost Cost  1.00000
+## 2     Tier2 Cost -0.74100
+## 3     avgHP Cost  0.60966
+## 4    avgDPS Cost  0.68706
+## 5    avgDmg Cost  0.56351
+## 6 DPSscale1 Cost  0.07516</code></pre>
+<pre class="r"><code>library(ggplot2)
+ggplot(data = melted_cortft, aes(Var2, Var1, fill = value)) + 
+    geom_tile(color = &quot;white&quot;) + scale_fill_gradient2(low = &quot;hotpink&quot;, 
+    high = &quot;navyblue&quot;, mid = &quot;white&quot;, midpoint = 0, limit = c(-1, 
+        1), space = &quot;Lab&quot;, name = &quot;Correlation&quot;) + theme_minimal() + 
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, size = 12, 
+        hjust = 1)) + coord_fixed() + ggtitle(&quot;Correlation Heatmap&quot;) + 
+    ylab(&quot;&quot;) + xlab(&quot;&quot;)</code></pre>
+<p><img src="/project1_files/figure-html/unnamed-chunk-9-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>The correlation heatmap showed that there is a strong negative correlation between champion tier (S, A, B..etc) and cost. There also seems to be a correlation between avg HP, DPS, and Dmg and cost. There seems to be no correlation between cost/tier and DPS scaling, which suggests that higher cost/tier champions do not scale more than lower cost/tier champions. This was a bit surprising, although it makes sense that higher tier champions have higher HPS, so even if scaling is the same they will still have significantly higher HP by level 3.</p>
+<p>####Plot #1</p>
+<pre class="r"><code>library(RColorBrewer)
+myPalette &lt;- colorRampPalette(rev(brewer.pal(11, &quot;Spectral&quot;)))
+sc &lt;- scale_colour_gradientn(colours = myPalette(100), limits = c(1, 
+    8))
+library(ggplot2)
+ggplot(tft, aes(avgDPS, avgDmg)) + geom_point(aes(color = Cost, 
+    size = Tier2)) + sc + ggtitle(&quot;avgDPS vs. avgDmg&quot;) + ylab(&quot;avgDPS&quot;) + 
+    xlab(&quot;avgDmg&quot;)</code></pre>
+<p><img src="/project1_files/figure-html/unnamed-chunk-10-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Trends from this scatterplot suggest that avgDmg is correlated to avgDPS, although there are some exceptions that are from champions who have an attack speed higher than 1. The dots are colored by cost and sized by tier, and a general trend is that higher avgDmg/DPS corresponds to champions of higher cost, although the pattern is not as consistent for tiers. Champions that are tier 1 (S) do not necessarily have the highest average damage/DPS.</p>
+<p>####Plot #2</p>
+<pre class="r"><code>ggplot(tft, aes(Tier2, Atk.spd)) + geom_point(aes(color = Cost, 
+    size = Tier2)) + stat_summary(fun = &quot;mean&quot;, colour = &quot;red&quot;, 
+    size = 2, geom = &quot;point&quot;) + ggtitle(&quot;Atk Spd by Tier with median in red&quot;) + 
+    ylab(&quot;Atk.spd&quot;) + xlab(&quot;Tier&quot;)</code></pre>
+<p><img src="/project1_files/figure-html/unnamed-chunk-11-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Champions that are of higher tier corresponds to higher cost and generally higher attack speed (with the exception of tier 5/D which has a higher attack speed than tiers A-C).</p>
+<p>####Plot #3</p>
+<pre class="r"><code>ggplot(tft, aes(x = HP1, y = DPS1)) + geom_point(aes(color = Cost, 
+    size = Tier2)) + stat_summary(fun = &quot;mean&quot;, colour = &quot;red&quot;, 
+    size = 1, geom = &quot;line&quot;) + sc + ggtitle(&quot;HP vs DPS with mean in red&quot;) + 
+    xlab(&quot;HP&quot;) + ylab(&quot;DPS&quot;)</code></pre>
+<p><img src="/project1_files/figure-html/unnamed-chunk-12-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Although there seems to be a upper trend in HP vs DPS by looking at the scatterplot, the mean in red showed that pattern is very inconsistent across different HPs. Higher average HP does seem to correspond to higher cost champions but does not correspond to champions of higher tiers.</p>
+<p>####Clustering Analysis - K-Means</p>
+<pre class="r"><code>wss &lt;- vector()
+for (i in 1:10) {
+    temp &lt;- tft %&gt;% select(avgDPS, avgDmg, avgHP) %&gt;% kmeans(i)
+    wss[i] &lt;- temp$tot.withinss
+}
+
+ggplot() + geom_point(aes(x = 1:10, y = wss)) + geom_path(aes(x = 1:10, 
+    y = wss)) + xlab(&quot;clusters&quot;) + scale_x_continuous(breaks = 1:10)</code></pre>
+<p><img src="/project1_files/figure-html/unnamed-chunk-13-1.png" width="672" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>library(cluster)
+tftcluster1 &lt;- tft %&gt;% select(avgDPS, avgDmg, avgHP)
+sil_width &lt;- vector()
+for (i in 2:10) {
+    kms &lt;- kmeans(tftcluster1, centers = i)
+    sil &lt;- silhouette(kms$cluster, dist(tftcluster1))
+    sil_width[i] &lt;- mean(sil[, 3])
+}
+ggplot() + geom_line(aes(x = 1:10, y = sil_width)) + scale_x_continuous(name = &quot;k&quot;, 
+    breaks = 1:10)</code></pre>
+<p><img src="/project1_files/figure-html/unnamed-chunk-13-2.png" width="672" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>kmeans &lt;- tftcluster1 %&gt;% kmeans(5)
+kmeans</code></pre>
+<pre><code>## K-means clustering with 5 clusters of sizes 13, 12, 10, 7, 13
+## 
+## Cluster means:
+##     avgDPS    avgDmg    avgHP
+## 1 95.89744 127.00000 1711.333
+## 2 76.25000 115.75000 1308.667
+## 3 68.66667 101.66667 1200.933
+## 4 76.47619 103.04762 1452.476
+## 5 64.02564  91.41026 1050.308
+## 
+## Clustering vector:
+##  [1] 1 1 4 5 3 4 4 5 1 2 3 3 4 3 4 2 5 5 2 5 1 1 5 2 1 4 2 1 5 2 1 2 2 2 3 5 1 3
+## [39] 2 3 5 5 1 4 2 5 5 3 3 1 2 3 1 1 5
+## 
+## Within cluster sum of squares by cluster:
+## [1] 52520.752  5982.944  7726.400 24426.476 63036.906
+##  (between_SS / total_SS =  95.4 %)
+## 
+## Available components:
+## 
+## [1] &quot;cluster&quot;      &quot;centers&quot;      &quot;totss&quot;        &quot;withinss&quot;     &quot;tot.withinss&quot;
+## [6] &quot;betweenss&quot;    &quot;size&quot;         &quot;iter&quot;         &quot;ifault&quot;</code></pre>
+<p>WSS and silhouette width were first computed for the variables avgDmg, avg DPS, and avgHP. Both results seem to suggest using 7 clusters but 5 clusters were chosen.</p>
+<pre class="r"><code>kmeansclust &lt;- tftcluster1 %&gt;% mutate(cluster = as.factor(kmeans$cluster))
+kmeansclust %&gt;% ggplot(aes(avgDmg, avgDPS, color = cluster)) + 
+    geom_point()</code></pre>
+<p><img src="/project1_files/figure-html/unnamed-chunk-14-1.png" width="672" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>kmeansclust %&gt;% ggplot(aes(avgHP, avgDPS, color = cluster)) + 
+    geom_point()</code></pre>
+<p><img src="/project1_files/figure-html/unnamed-chunk-14-2.png" width="672" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>library(tidyr)
+confmat &lt;- kmeansclust %&gt;% mutate(cost = tft$Cost) %&gt;% group_by(cost) %&gt;% 
+    count(cluster) %&gt;% pivot_wider(names_from = cluster, values_from = n, 
+    values_fill = list(n = 0))
+
+confmat</code></pre>
+<pre><code>## # A tibble: 5 x 6
+## # Groups:   cost [5]
+##    cost   `2`   `3`   `5`   `1`   `4`
+##   &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt;
+## 1     1     5     3     4     0     0
+## 2     2     2     1     7     1     3
+## 3     3     4     5     0     4     0
+## 4     4     1     1     2     3     3
+## 5     5     0     0     0     5     1</code></pre>
+<pre class="r"><code>round(sum(diag(as.matrix(confmat[, 2:6])))/sum(confmat[, 2:6]), 
+    6)</code></pre>
+<pre><code>## [1] 0.181818</code></pre>
+<p>K-means clustering analysis was used to cluster the variables average HP, DPS, and Dmg into 5 clusters, which may correspond to the Cost variable. The clusters shown with average DPS vs Dmg seem to be everywhere and there are no distint clusters. The clusters with avg HP and DPS seem to be more distinct. This suggests that another cluster value for the frist two variables should be used or that there is no distinct pattern to the variables. After clustering, the accuracy was attempted to be checked but a very low accuracy of 23.6% was found. It is uncertain whether that was due to the number of clusters chosen, wrong code, or wrong code. Another analysis (shown below) was done using 6 clusters but the resulting accuracy of 16.3% was even lower.</p>
+<pre class="r"><code>kmeans2 &lt;- tftcluster1 %&gt;% kmeans(6)
+
+kmeansclust2 &lt;- tftcluster1 %&gt;% mutate(cluster = as.factor(kmeans2$cluster))
+
+library(tidyr)
+confmat2 &lt;- kmeansclust2 %&gt;% mutate(tier2 = tft$Tier2) %&gt;% group_by(tier2) %&gt;% 
+    count(cluster) %&gt;% pivot_wider(names_from = cluster, values_from = n, 
+    values_fill = list(n = 0))
+
+confmat2</code></pre>
+<pre><code>## # A tibble: 6 x 7
+## # Groups:   tier2 [6]
+##   tier2   `1`   `4`   `5`   `6`   `2`   `3`
+##   &lt;dbl&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt;
+## 1     1     5     1     1     2     0     0
+## 2     2     4     0     0     1     3     3
+## 3     3     1     2     5     3     0     3
+## 4     4     1     0     6     3     2     4
+## 5     5     0     1     1     1     0     0
+## 6     6     0     0     0     2     0     0</code></pre>
+<pre class="r"><code>round(sum(diag(as.matrix(confmat2[, 2:7])))/sum(confmat2[, 2:7]), 
+    7)</code></pre>
+<pre><code>## [1] 0.2363636</code></pre>

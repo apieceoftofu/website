@@ -1,0 +1,270 @@
+---
+title: "Project 2 - Heart Disease Prediction Model"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, fig.align = "center", warning = F, message = F,
+tidy=TRUE, tidy.opts=list(width.cutoff=60), R.options=list(max.print=100))
+```
+
+###### Jiayin Li jl64556
+#### Introduction
+
+The diagnosis of heart disease is done on a combination of clinical signs and test results. This dataset contains results obtained from 297 patients of different possible contributors to heart diseases including cholesterol levels, blood pressure, including hereditary traits such as sex, disorders, etc.
+
+*age: age in years
+
+*sex: 1 = male, 0 = female
+
+*cp: The chest pain experienced (1: typical angina, 2: atypical angina, 3: non-anginal pain, 4: asymptomatic)
+
+*trestbps: esting blood pressure (mmHg on admission to the hospital)
+
+*chol: Cholesterol measurement in mg/dl
+fbs: Fasting blood sugar (> 120 mg/dl, 1 = true; 0 = false)
+
+*restecg: Resting electrocardiographic measurement (0 = normal, 1 = having ST-T wave abnormality, 2 = showing probable or definite left ventricular hypertrophy by Estes' criteria)
+
+*thalach: The person's maximum heart rate achieved
+
+*exang: Exercise induced angina (1 = yes; 0 = no)
+
+*oldpeak: ST depression induced by exercise relative to rest 
+
+*slope: the slope of the peak exercise ST segment (1: upsloping, 2: flat, 3: downsloping)
+
+*ca: The number of major vessels (0-3)
+
+*thal: A blood disorder called thalassemia ( 0 = normal; 1 = fixed defect; 2 = reversable defect)
+
+*target: Heart disease (0 = no, 1 = yes)
+
+## Code for class_diag
+
+```{r global_options, include=FALSE}
+library(knitr)
+opts_chunk$set(fig.align="center", fig.height=5, message=FALSE, warning=FALSE, fig.width=8, tidy.opts=list(width.cutoff=60),tidy=TRUE)
+
+class_diag<-function(probs,truth){
+  
+  tab<-table(factor(probs>.5,levels=c("FALSE","TRUE")),truth)
+  acc=sum(diag(tab))/sum(tab)
+  sens=tab[2,2]/colSums(tab)[2]
+  spec=tab[1,1]/colSums(tab)[1]
+  ppv=tab[2,2]/rowSums(tab)[2]
+
+  if(is.numeric(truth)==FALSE & is.logical(truth)==FALSE) truth<-as.numeric(truth)-1
+  
+  ord<-order(probs, decreasing=TRUE)
+  probs <- probs[ord]; truth <- truth[ord]
+  
+  TPR=cumsum(truth)/max(1,sum(truth)) 
+  FPR=cumsum(!truth)/max(1,sum(!truth))
+  
+  dup<-c(probs[-1]>=probs[-length(probs)], FALSE)
+  TPR<-c(0,TPR[!dup],1); FPR<-c(0,FPR[!dup],1)
+  
+  n <- length(TPR)
+  auc<- sum( ((TPR[-1]+TPR[-n])/2) * (FPR[-1]-FPR[-n]) )
+
+  data.frame(acc,sens,spec,ppv,auc)
+}
+```
+
+## MANOVA and t-test
+```{r cars}
+heart <-read.csv("heart_cleveland_upload.csv") 
+heart$sex <- as.character(heart$sex)
+heart$sex[heart$sex == "0"] <- 'f'
+heart$sex[heart$sex == "1"] <- 'm'
+
+heart$thal <- as.character(heart$thal)
+heart$thal[heart$thal == "0"] <- 'normal'
+heart$thal[heart$thal == "1"] <- 'fixed defect'
+heart$thal[heart$thal == "2"] <- 'reversible defect'
+library(dplyr)
+
+man <- manova(cbind(chol, trestbps)~sex, data=heart)
+summary(man)
+summary.aov(man)
+heart%>%group_by(sex)%>%summarize(mean(chol),mean(trestbps))
+```
+*A MANOVA test was conducted to determine to whether cholesterol levels and resting blood pressure differs by sex. From the MANOVA, significant difference among sex for one of the variables was found (F=6.26, p=0.2216.) Univariate ANOVAs were then conducted and a significant different was found among sex for cholesterol level while there was no significant difference for resting blood pressure (p=0.00059, p=0.2544, respectively). Since 1 manova and 2 anova tests were conducted, the new p-value was adjusted to 0.05/3=0.0167. The p-value found from the ANOVA test determining whether mean cholesterol level differs across sex was less than the adjusted p-value. This suggests that the result is significant, and after comparing the actual mean cholesterol levels, it can be determined that cholesterol levels in women is significantly higher than cholesterol levels in men for the sample tested. (The p-value was again adjusted to a one-tailed p-value of 0.0167/2= 0.0083)*
+
+*For assumptions, it is unsure whether the samples are random under independent observations.*
+
+## Randomization Test
+```{r}
+
+library(dplyr)
+heart%>%group_by(sex)%>%
+  summarize(means=mean(trestbps))%>%summarize(`mean_diff:`=diff(means))
+rand_dist<-vector()
+for(i in 1:5000){
+new<-data.frame(trestbps=sample(heart$trestbps),sex=heart$sex)
+rand_dist[i]<-mean(new[new$sex=="f",]$trestbps)-
+mean(new[new$sex=="m",]$trestbps)}
+{hist(rand_dist,main="",ylab=""); abline(v = -2.515236, col="red")}
+mean(rand_dist>2.515236 | rand_dist< -2.515236)
+
+library(car)
+leveneTest(trestbps~sex,data=heart)
+t.test(data=heart,trestbps~sex)
+```
+*The mean differene between resting blood pressure of males and females was 2.515236. A Randomization test was performed to determine whether there was a difference in mean resting blood pressure on admission to the hospital between males and females. The null hypothesis was that mean resting BP is the same for both sexs and the alternative hypothesis was they are different. The p-value for the randomization tests was 0.2578, which suggests the result are not significant and the mean resting BP are the same for both sexs. A t-test was then performed to verify the randomization test and the result was indeed not significant (p=0.2791).*
+
+
+## Linear Regression + Interaction
+```{r}
+library(ggplot2)
+library(sandwich)
+library(lmtest)
+heart$age_c <- heart$age - mean(heart$age)
+fit<-lm(chol ~ sex*age_c, data=heart)
+summary(fit)
+
+
+###Assumptions
+resids<-fit$residuals
+fitvals<-fit$fitted.values
+ggplot()+geom_histogram(aes(resids),bins=20)
+ggplot()+geom_point(aes(fitvals,resids))+geom_hline(yintercept=0, col="red")
+ggplot()+geom_qq(aes(sample=resids))+geom_qq_line(aes(sample=resids), color='red')
+ks.test(resids, "pnorm", mean=0, sd(resids)) 
+bptest(fit)
+```
+**When controlling for age there is a significant difference in cholesterol levels between males and females (p=0.00208, t=-3.106). For this linear regression model, males' cholesterol levels will be 19.4161 mg/dl lower than that of females when controlling for age. Controlling for sex, there is a significant effect of age on cholesterol level. For every one year increase in age, cholesterol level increases 1.8072 mg/dl. (p=0.00104, t= 3.313)*
+*There does not seem to be an interaction between ace and sex on levels of cholesterol (p>0.05)*
+*Because linear regression requires a set of assumptions to be fulfilled, normality was checked with a histogram of residuals, linearity was checked with a scatterplot, and variance checked with a Breuch-Pagan test. The equal variance assumption was not met (p<0.05), which means the sample is heteroskedastic. *
+
+## Linear Regression Graph
+```{r}
+
+library(tidyverse)
+newdat<-heart
+newdat$sex<-rep("f",length(newdat$sex))
+newdat$pred2<-predict(fit,newdat)
+newdat$sex<-rep("m",length(newdat$sex))
+newdat$pred1<-predict(fit,newdat)
+new1<-newdat%>%select(age_c,chol,pred2,pred1)%>%gather(sex,pred,-c(age_c,chol))
+new1$sex<-factor(new1$sex,labels=c("m","f"))
+fit<-lm(chol~age_c*sex,data=heart)
+summary(fit)
+ggplot(new1,aes(x=age_c,y=chol))+geom_point()+geom_line(aes(y=pred,color=sex),size=1)+ggtitle("t-test controlling for age")
+```
+
+
+```{r}
+library(sandwich)
+library(lmtest)
+fit<-lm(chol~age_c*sex,data=heart)
+bptest(fit)
+summary(fit)
+summary(fit)$coef[,1:2]
+coeftest(fit, vcov = vcovHC(fit))[,1:2]
+
+bptest(fit)
+```
+*Standard errors are bigger after accounting fir heteroskedasticity. According to R^2, 8.2% of the variability in cholesterol level is explained, but 7.3% for the adjusted R^2. This percentage is very low, but that is most likely due to only two variables used, when there should be many more variables explaining for the variance in cholesterol levels for this dataset. For example, after adding in maximum heart rate achieved (thalach), R^2 increased to 14.23%. *
+
+```{r}
+boot_dat<- sample_frac(heart, replace=T)
+samp_distn<-replicate(5000, {
+boot_dat <- sample_frac(heart, replace=T)
+fit3 <- lm(chol~age_c*sex, data=boot_dat) #fit model
+coef(fit3)
+})
+summary(fit)$coef[,1:2]
+coeftest(fit, vcov = vcovHC(fit))[,1:2]
+samp_distn %>% t %>% as.data.frame %>% summarize_all(sd)
+```
+*The bootstrapped SE are slightly larger than the robust SEs which is larger than the original SEs. This makes sense because bootstrapping accounts for assumption violations as well as small sample sizes.  Many samples are taken from the sample size to calculated for SEs which *
+
+## Logistical Regression
+```{r}
+
+fitlr<-glm(condition~age+sex+chol+trestbps+thalach, family="binomial", data=heart)
+coeftest(fitlr)
+exp(coef(fitlr))
+```
+*Controlling for sex, cholesterol levels, resting blood pressure, and maximum heart rate, the odds of having heart disease does not have a significant relationship with age (p=0.425)*
+*Controlling for all other variables, odds of having a heard dieases increase by a factor of 5.938 for males (significant, p<0.05)*
+*Controlling for all other variables, for every unit increase in cholesterol level, odds of heart disease increase by a factor of 1.0068 (significant, p<0.05).For every unit increase in resting blood pressure, odds of heart disease increas by a factor 1.021 (significant, p<0.05). For every unit increase in maximum heart rate achieved, odds of heart disease increase by a factor of 0.954 (significant, p<0.05).*
+
+
+## Confusion Matrix
+```{r}
+truth<-heart$condition
+prob<-predict(fitlr, type="response")
+pred<-ifelse(prob>0.5,1,0)
+table(truth=heart$condition,prediction=pred)%>%addmargins
+class_diag(prob, heart$condition)
+
+#Density plot
+heart$logit<-predict(fitlr) 
+heart$condition<-factor(heart$condition,levels=c("0","1"))
+ggplot(heart,aes(logit, fill=condition))+geom_density(alpha=.3)+
+  geom_vline(xintercept=0,lty=2)
+```
+*Accuracy: (123+87)/297=0.707*
+*TPR(sensitivity): 123/160=0.769*
+*TNR(specificity): 87/137=0.635*
+*PPV(precision): 123/173=0.710*
+
+## 10-fold CV
+```{r}
+
+library(pROC)
+set.seed(1234)
+k=10
+data<-heart[sample(nrow(heart)),]
+folds<-cut(seq(1:nrow(heart)),breaks=k,labels=F)
+
+diags<-NULL
+for(i in 1:k){
+  train<-data[folds!=i,] 
+  test<-data[folds==i,]
+  truth<-test$condition
+  fit10<-glm(condition~., family="binomial", data=heart)
+  probs<-predict(fit10,newdata = test,type="response")
+  diags<-rbind(diags,class_diag(probs,truth))
+}
+summarize_all(diags,mean)
+``` 
+*After performing a 10-fold cross validation on all of the predictors, the AUC was determined to be 0.930, which suggests the model, with all the predictors it contains, is very good. This AUC syggests that there's a 93.0% probability that a randomly selected person with heart diseas has a higher predicted probability than someone without heart disease.*
+
+
+## LASSO Regression + CV
+```{r}
+library(glmnet)
+
+y<-as.matrix(heart$condition)
+x<-model.matrix(condition~.,data=heart)[,-1] 
+cv<-cv.glmnet(x,y,family="binomial")
+lasso<-glmnet(x,y,family="binomial",lambda=cv$lambda.1se)
+coef(lasso)
+
+set.seed(1234)
+k=10
+data <- heart %>% sample_frac 
+folds <- ntile(1:nrow(data),n=10) 
+diags<-NULL
+for(i in 1:k){
+train <- data[folds!=i,]
+test <- data[folds==i,] 
+truth <- test$condition
+fit <- glm(condition~.,
+data=train, family="binomial")
+
+probs <- predict(fit, newdata=test, type="response")
+diags<-rbind(diags,class_diag(probs,truth))
+}
+diags%>%summarize_all(mean)
+
+class_diag(prob, heart$condition)
+```
+
+

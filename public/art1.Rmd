@@ -1,0 +1,33 @@
+---
+title: "Artwork - School"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+![Girl - Black & gold ink](1.JPG)
+
+![Breeze - Black & gold ink](2.JPG)
+
+![End - Black & gold ink](3.JPG)
+
+![Autum - Colored pencils](4.JPG)
+
+![Home - Watercolor](6.JPG)
+
+![Kite - Paint Tool SAI](7.JPG)
+
+![Koi - Photoshop CC](8.JPG)
+
+![Urania - Photoshop CC](9.JPG)
+
+![Northern Lights - Paint Tool SAI](10.JPG)
+
+![Painting Stars - Paint Tool SAI](11.JPG)
+
+![Imagination - Paint Tool SAI](12.JPG)
+
+
+

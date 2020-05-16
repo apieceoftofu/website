@@ -1,0 +1,52 @@
+baseurl = "/"
+languageCode = "en-US"
+title = "Portfolio"
+# Enable comments by entering your Disqus shortname
+disqusShortname = ""
+# Enable Google Analytics by entering your tracking code
+googleAnalytics = ""
+theme = "hugo-sustain"
+
+[permalinks]
+  post = "/:year/:month/:day/:slug"
+
+[params]
+  avatar = "jenny.png"
+  author = "Jenny Li"
+  description = "Describe your website"
+
+  # Custom assets can be linked with their paths relative to static/
+  custom_css = []
+  custom_js  = []
+
+[params.social]
+
+  Email         = "jiayinli1998@gmail.com"
+  Instagram     = "apieceoftofu"
+
+## Main Menu
+[[menu.main]]
+  name = "blog"
+  weight = 100
+  identifier = "blog"
+  url = "/blog/"
+[[menu.main]]
+  name = "projects"
+  identifier = "projects"
+  weight = 200
+  url = "/projects/"
+[[menu.main]]
+  name = "art1"
+  identifier = "art1"
+  weight = 200
+  url = "/art1/"
+[[menu.main]]
+  name = "art2"
+  identifier = "art2"
+  weight = 200
+  url = "/art2/"
+[[menu.main]]
+  name = "resume"
+  identifier = "resume"
+  weight = 300
+  url = "/resume/"
