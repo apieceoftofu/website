@@ -36,12 +36,12 @@ theme = "hugo-sustain"
   weight = 200
   url = "/projects/"
 [[menu.main]]
-  name = "art1"
+  name = "Old Art"
   identifier = "art1"
   weight = 200
   url = "/art1/"
 [[menu.main]]
-  name = "art2"
+  name = "New Art"
   identifier = "art2"
   weight = 200
   url = "/art2/"
